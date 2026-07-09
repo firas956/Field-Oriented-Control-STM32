@@ -1,0 +1,91 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "cwd": "${workspaceFolder}",
+            "executable": "${workspaceFolder}/build/Debug/FOC_IMP.elf",
+            "name": "Debug with OpenOCD",
+            "request": "launch",
+            "type": "cortex-debug",
+            "servertype": "openocd",
+            "device": "STM32F446xx",
+            "setupCommands": [
+                {
+                    "text": "set host-charset UTF-8"
+                },
+                {
+                    "text": "set target-charset UTF-8"
+                }
+            ],
+            "configFiles": [
+                "interface/stlink.cfg",
+                "target/stm32f4x.cfg"
+            ],
+            "runToEntryPoint": "main",
+            "showDevDebugOutput": "none",
+            "liveWatch": {
+                "enabled": true,
+                "samplesPerSecond": 10
+            },
+            "svdFile": "${workspaceFolder}/STM32F446.svd"
+        },
+        {
+            "showDevDebugOutput": "parsed",
+            "cwd": "${workspaceFolder}",
+            "executable": "${workspaceFolder}/build/Debug/FOC_IMP.elf",
+            "name": "Debug STM32",
+            "request": "launch",
+            "type": "cortex-debug",
+            "servertype": "openocd",
+            "device": "STM32F446xx",
+            "setupCommands": [
+                {
+                    "text": "set host-charset UTF-8"
+                },
+                {
+                    "text": "set target-charset UTF-8"
+                }
+            ],
+            "runToEntryPoint": "main",
+            "liveWatch": {
+                "enabled": true,
+                "samplesPerSecond": 10
+            },
+            "configFiles": [
+                "interface/stlink.cfg",
+                "target/stm32f4x.cfg"
+            ],
+            "svdFile": "${workspaceFolder}/STM32F446.svd"
+        },
+        {
+            "showDevDebugOutput": "parsed",
+            "cwd": "${workspaceFolder}",
+            "executable": "${workspaceFolder}/build/Debug/FOC_IMP.elf",
+            "name": "Attach STM32",
+            "request": "attach",
+            "type": "cortex-debug",
+            "servertype": "openocd",
+            "device": "STM32F446xx",
+            "setupCommands": [
+                {
+                    "text": "set host-charset UTF-8"
+                },
+                {
+                    "text": "set target-charset UTF-8"
+                }
+            ],
+            "liveWatch": {
+                "enabled": true,
+                "samplesPerSecond": 10
+            },
+            "configFiles": [
+                "interface/stlink.cfg",
+                "target/stm32f4x.cfg"
+            ],
+            "svdFile": "${workspaceFolder}/STM32F446.svd"
+        }
+    ]
+}

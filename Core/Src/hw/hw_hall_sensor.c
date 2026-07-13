@@ -15,12 +15,12 @@ static int8_t direction = 1;
 
 static const float hall_angle_table[8] = {
     0.0f,                 // 0: Invalid
-    5.0f * SIXTY_DEG_RAD, // 1: 300 deg
-    1.0f * SIXTY_DEG_RAD, // 2: 60 deg
+    1.0f * SIXTY_DEG_RAD, // 1: 300 deg
+    5.0f * SIXTY_DEG_RAD, // 2: 60 deg
     0.0f,                 // 3: 0 deg
     3.0f * SIXTY_DEG_RAD, // 4: 180 deg
-    4.0f * SIXTY_DEG_RAD, // 5: 240 deg
-    2.0f * SIXTY_DEG_RAD, // 6: 120 deg
+    2.0f * SIXTY_DEG_RAD, // 5: 240 deg
+    4.0f * SIXTY_DEG_RAD, // 6: 120 deg
     0.0f                  // 7: Invalid
 };
 

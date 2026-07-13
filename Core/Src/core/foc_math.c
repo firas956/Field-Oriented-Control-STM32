@@ -45,7 +45,7 @@ void FOC_SVPWM(const AlphaBeta_t *v_in, float vdc, Phase_t *duty_out)
         if (alpha >= 0.0f) {
             sector = (ONE_BY_SQRT3 * beta > alpha) ? 2 : 1;
         } else {
-            sector = (ONE_BY_SQRT3 * beta > alpha) ? 3 : 2;
+            sector = (-ONE_BY_SQRT3 * beta > alpha) ? 3 : 2;
         }
     } else {
         if (alpha >= 0.0f) {

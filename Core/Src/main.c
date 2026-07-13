@@ -112,15 +112,18 @@ int main(void)
   StateMachine_Init();
 
   HW_ADC_Init();
-
+  //MotorControl_SetTorqueTarget(1.5f);
+  MotorControl_SetSpeedTarget(500.0f);
   StateMachine_RequestState(STATE_RUNNING);
   
-  __HAL_ADC_ENABLE_IT(&hadc1, ADC_IT_JEOC);
+  HAL_ADCEx_InjectedStart(&hadc2);
+  HAL_ADCEx_InjectedStart_IT(&hadc1);
   
   HAL_TIM_Base_Start(&htim1);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -389,7 +392,7 @@ static void MX_TIM1_Init(void)
   {
     Error_Handler();
   }
-  sConfigOC.Pulse = 4500;
+  sConfigOC.Pulse = 9000-15;
   if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
   {
     Error_Handler();
@@ -501,6 +504,13 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
     if (htim->Instance == TIM3)
     {
         HW_Hall_Update_ISR();
+    }
+}
+void HAL_ADCEx_InjectedConvCpltCallback(ADC_HandleTypeDef *hadc)
+{
+    if (hadc->Instance == ADC1)
+    {
+        MotorControl_RunIteration();
     }
 }
 /* USER CODE END 4 */

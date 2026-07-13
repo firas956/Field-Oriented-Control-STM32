@@ -26,7 +26,7 @@ static const float hall_angle_table[8] = {
 
 void HW_Hall_Init(void) {
     // Start the input capture interrupt for CH1
-    HAL_TIM_IC_Start_IT(&htim3, TIM_CHANNEL_1);
+    HAL_TIMEx_HallSensor_Start_IT(&htim3);
 }
 
 void HW_Hall_Update_ISR(void) {
@@ -34,9 +34,9 @@ void HW_Hall_Update_ISR(void) {
     static uint8_t prev_hall_state = 0;
 
     // 1. Read the exact pins mapped in your hardware
-    if (GPIOA->IDR & GPIO_PIN_6) hall_state |= 0x01; // Hall 1
+    if (GPIOA->IDR & GPIO_PIN_6) hall_state |= 0x04; // Hall 1
     if (GPIOC->IDR & GPIO_PIN_7) hall_state |= 0x02; // Hall 2
-    if (GPIOC->IDR & GPIO_PIN_8) hall_state |= 0x04; // Hall 3
+    if (GPIOC->IDR & GPIO_PIN_8) hall_state |= 0x01; // Hall 3
     hall_debug.h1 = (hall_state & 0x01) ? 1 : 0;
     hall_debug.h2 = (hall_state & 0x02) ? 1 : 0;
     hall_debug.h3 = (hall_state & 0x04) ? 1 : 0;

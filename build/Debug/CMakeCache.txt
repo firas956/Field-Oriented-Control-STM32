@@ -220,8 +220,8 @@ CMAKE_STRIP:FILEPATH=C:/Program Files (x86)/Arm GNU Toolchain arm-none-eabi/14.3
 //Path to a program.
 CMAKE_TAPI:FILEPATH=CMAKE_TAPI-NOTFOUND
 
-//The CMake toolchain file
-CMAKE_TOOLCHAIN_FILE:FILEPATH=C:/Users/firas/Desktop/stage_IIA4/BRUCHLESS/FOC_IMP/cmake/gcc-arm-none-eabi.cmake
+//No help, variable specified on the command line.
+CMAKE_TOOLCHAIN_FILE:UNINITIALIZED=C:/Users/firas/Desktop/stage_IIA4/BRUCHLESS/FOC_IMP/cmake/gcc-arm-none-eabi.cmake
 
 //If this value is on, makefiles will be generated without the
 // .SILENT directive, and all commands will be echoed to the console

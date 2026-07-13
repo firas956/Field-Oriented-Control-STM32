@@ -1195,10 +1195,10 @@
 			[
 				{
 					"name" : "HELPSTRING",
-					"value" : "The CMake toolchain file"
+					"value" : "No help, variable specified on the command line."
 				}
 			],
-			"type" : "FILEPATH",
+			"type" : "UNINITIALIZED",
 			"value" : "C:/Users/firas/Desktop/stage_IIA4/BRUCHLESS/FOC_IMP/cmake/gcc-arm-none-eabi.cmake"
 		},
 		{

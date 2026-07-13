@@ -62,6 +62,9 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
     ${FOC_Application_Src}
+    Drivers/CMSIS/DSP/Source/FastMathFunctions/arm_sin_f32.c
+    Drivers/CMSIS/DSP/Source/FastMathFunctions/arm_cos_f32.c
+    Drivers/CMSIS/DSP/Source/CommonTables/arm_common_tables.c
 )
 
 # Add include paths

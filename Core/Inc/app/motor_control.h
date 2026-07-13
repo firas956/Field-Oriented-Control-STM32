@@ -10,7 +10,8 @@ typedef struct {
     float id_target;
     float iq_target;
     float vdc_bus;
-
+    float speed_target;
+    float speed_measured;
     Phase_t i_abc;
     float angle_rad;
     AlphaBeta_t i_alphabeta;
@@ -23,6 +24,8 @@ typedef struct {
 void MotorControl_Init(void);
 void MotorControl_RunIteration(void);
 void MotorControl_SetTorqueTarget(float iq_amps);
+void MotorControl_RunSpeedLoop(void);
+void MotorControl_SetSpeedTarget(float speed_rpm);
 
 extern FOC_Controller_t foc_core;
 

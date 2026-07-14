@@ -113,7 +113,7 @@ int main(void)
 
   HW_ADC_Init();
   //MotorControl_SetTorqueTarget(1.5f);
-  MotorControl_SetSpeedTarget(500.0f);
+  MotorControl_SetSpeedTarget(100.0f);
   StateMachine_RequestState(STATE_RUNNING);
   
   HAL_ADCEx_InjectedStart(&hadc2);

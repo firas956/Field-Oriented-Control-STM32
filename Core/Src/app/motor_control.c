@@ -2,10 +2,9 @@
 #include "hw/hw_adc.h"
 #include "hw/hw_hall_sensor.h"
 #include "hw/hw_pwm.h"
-
+#include "core/lpf.h"
 #define MOTOR_POLE_PAIRS 2
-volatile float motor_speed_probe = 0.0f;
-volatile float electrical_angle_probe = 0.0f;
+
 FOC_Controller_t foc_core;
 static PI_Controller_t id_controller;
 static PI_Controller_t iq_controller;
@@ -29,27 +28,28 @@ void MotorControl_Init(void) {
 
     float Ts_speed = 1.0f / 1000.0f;
     PI_Init(&speed_controller, 0.5f, 0.01f, Ts_speed, -10.0f, 10.0f);
-
+    
 }
 
 void MotorControl_RunIteration(void) {
     
     foc_core.speed_measured = HW_Hall_GetSpeedRPM(MOTOR_POLE_PAIRS);
-    motor_speed_probe = foc_core.speed_measured;
     float speed_error = foc_core.speed_target - foc_core.speed_measured;
     foc_core.iq_target = PI_Update(&speed_controller, speed_error);
     
     HW_ADC_ReadCurrents(&foc_core.i_abc.a, &foc_core.i_abc.b);
     foc_core.i_abc.c = -(foc_core.i_abc.a + foc_core.i_abc.b);
     foc_core.angle_rad = HW_Hall_GetElectricalAngle();
-    electrical_angle_probe = foc_core.angle_rad;
+    
     FOC_Clark(&foc_core.i_abc, &foc_core.i_alphabeta);
     FOC_Park(&foc_core.i_alphabeta, &foc_core.i_dq, foc_core.angle_rad);
+
     float id_error = foc_core.id_target - foc_core.i_dq.d;
     float iq_error = foc_core.iq_target - foc_core.i_dq.q;
     foc_core.v_dq.d = PI_Update(&id_controller, id_error);
     foc_core.v_dq.q = PI_Update(&iq_controller, iq_error);
     FOC_InversePark(&foc_core.v_dq, &foc_core.v_alphabeta, foc_core.angle_rad);
+    
     FOC_SVPWM(&foc_core.v_alphabeta, foc_core.vdc_bus, &foc_core.duty_cycles);
     HW_PWM_SetDuties(&foc_core.duty_cycles);
 }

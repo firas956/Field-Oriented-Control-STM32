@@ -5,7 +5,7 @@
 #include "core/foc_math.h"
 
 // Hardware specific constants matched to your CubeMX configuration
-#define PWM_ARR          8999.0f 
+#define PWM_ARR          4500-1.0f 
 #define PWM_TIMER_HANDLE htim1
 
 extern TIM_HandleTypeDef PWM_TIMER_HANDLE;

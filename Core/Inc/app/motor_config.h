@@ -19,4 +19,15 @@
 #define SPEED_LOOP_DECIMATION   10      /* 10 kHz / 10 = 1 kHz speed loop */
 #define SPEED_LPF_ALPHA         0.1f    /* first-order IIR on raw hall speed, at 1 kHz */
 
+/* ---- Hall calibration scan (STATE_HALL_CALIB) ----------------------------
+ * Stall current during the scan is roughly HALL_CALIB_VOLTS / Rs, and Rs is
+ * unknown until the bench measurement: start low and raise only if the rotor
+ * does not follow the vector. The overcurrent trip stays armed regardless.
+ */
+#define HALL_CALIB_VOLTS        1.5f    /* forced-vector amplitude [V] */
+#define HALL_CALIB_ELEC_HZ      0.5f    /* electrical scan speed [Hz] */
+#define HALL_CALIB_ALIGN_S      1.0f    /* initial align: voltage ramp + hold */
+#define HALL_CALIB_REVS         2       /* measured elec. revs per direction
+                                           (one extra settling rev is discarded) */
+
 #endif /* MOTOR_CONFIG_H */

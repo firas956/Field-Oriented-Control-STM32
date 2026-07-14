@@ -27,14 +27,25 @@ void FOC_InverseClarke(const AlphaBeta_t *in, Phase_t *out){
     out->b =  (-in->alpha + in->beta * SQRT3) * 0.5f; 
     out->c = -(out->a + out->b);
 }
-void FOC_SVPWM(const AlphaBeta_t *v_in, float vdc, Phase_t *duty_out) 
+void FOC_SVPWM(const AlphaBeta_t *v_in, float vdc, Phase_t *duty_out)
 {
-    // Protect against division by zero
-    if (vdc <= 0.0f) return;
+    // Protect against division by zero: park at the neutral zero vector
+    // instead of returning with stale duties in duty_out
+    if (vdc <= 0.0f) {
+        duty_out->a = 0.5f;
+        duty_out->b = 0.5f;
+        duty_out->c = 0.5f;
+        return;
+    }
 
-    // Normalize input voltages by Vdc
-    float alpha = v_in->alpha / vdc;
-    float beta  = v_in->beta / vdc;
+    // Normalize input voltages by Vdc.
+    // The 1.5 factor maps an amplitude-invariant phase-voltage request onto
+    // the (2/3)Vdc active-vector basis so the average phase voltage delivered
+    // equals the request. Without it the modulator has a fixed 2/3 gain:
+    // requesting the linear limit Vdc/sqrt(3) at a sector midpoint must give
+    // a full 0..1 duty span (t1 + t2 = 1).
+    float alpha = 1.5f * v_in->alpha / vdc;
+    float beta  = 1.5f * v_in->beta / vdc;
     
     float t1 = 0.0f;
     float t2 = 0.0f;

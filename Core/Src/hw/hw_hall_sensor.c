@@ -17,14 +17,17 @@ static uint8_t prev_hall_state = 0;
 // seen without a counter overflow in between. Cleared at init and on timeout.
 static volatile uint8_t period_valid = 0;
 
-static const float hall_angle_table[8] = {
+// Forward-entry electrical angle per hall state. These defaults are a GUESS
+// for an unknown motor: run STATE_HALL_CALIB to measure and overwrite them
+// at runtime (HW_Hall_SetAngleTable), then persist the measured values here.
+static float hall_angle_table[8] = {
     0.0f,                 // 0: Invalid
-    1.0f * SIXTY_DEG_RAD, // 1: 300 deg
-    5.0f * SIXTY_DEG_RAD, // 2: 60 deg
-    0.0f,                 // 3: 0 deg
-    3.0f * SIXTY_DEG_RAD, // 4: 180 deg
-    2.0f * SIXTY_DEG_RAD, // 5: 240 deg
-    4.0f * SIXTY_DEG_RAD, // 6: 120 deg
+    1.0f * SIXTY_DEG_RAD, // 1
+    5.0f * SIXTY_DEG_RAD, // 2
+    0.0f,                 // 3
+    3.0f * SIXTY_DEG_RAD, // 4
+    2.0f * SIXTY_DEG_RAD, // 5
+    4.0f * SIXTY_DEG_RAD, // 6
     0.0f                  // 7: Invalid
 };
 
@@ -34,6 +37,29 @@ static uint8_t Hall_ReadState(void) {
     if (GPIOC->IDR & GPIO_PIN_7) state |= 0x02; // Hall 2
     if (GPIOC->IDR & GPIO_PIN_8) state |= 0x01; // Hall 3
     return state;
+}
+
+uint8_t HW_Hall_GetState(void) {
+    return Hall_ReadState();
+}
+
+void HW_Hall_SetAngleTable(const float table[8]) {
+    for (int i = 0; i < 8; i++) {
+        hall_angle_table[i] = table[i];
+    }
+    // Re-seed: the rotor moved while the table was being measured, so the old
+    // base angle is stale. Same sector-centre seeding as HW_Hall_Init.
+    uint8_t state = Hall_ReadState();
+    if (state > 0 && state < 7) {
+        float angle = hall_angle_table[state] + 0.5f * SIXTY_DEG_RAD;
+        if (angle >= (2.0f * PI)) {
+            angle -= (2.0f * PI);
+        }
+        base_angle_rad = angle;
+        prev_hall_state = state;
+    }
+    omega_rad_per_tick = 0.0f;
+    period_valid = 0;
 }
 
 void HW_Hall_Init(void) {

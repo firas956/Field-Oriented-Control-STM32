@@ -41,6 +41,13 @@ void StateMachine_Update(void) {
             // Note: Torque is updated externally by calling MotorControl_SetTorqueTarget()
             break;
 
+        case STATE_HALL_CALIB:
+            // Gates live: the calibration scan drives the PWM open-loop from
+            // the 10 kHz ISR (see hall_calibration.c). The software
+            // overcurrent trip stays armed throughout.
+            __HAL_TIM_MOE_ENABLE(&PWM_TIMER_HANDLE);
+            break;
+
         case STATE_FAULT:
             // Latched protection trip: keep the gates dead until an explicit
             // operator request returns the system to IDLE.

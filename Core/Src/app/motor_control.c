@@ -1,11 +1,16 @@
 #include "app/motor_control.h"
 #include "app/motor_config.h"
 #include "app/state_machine.h"
+#include "app/hall_calibration.h"
 #include "hw/hw_adc.h"
 #include "hw/hw_hall_sensor.h"
 #include "hw/hw_pwm.h"
 #include "core/lpf.h"
+#include "core/modulator.h"
 #include <math.h>
+
+// Modulation strategy: swap FOC_SVPWM <-> FOC_SPWM here, nothing else changes.
+static const PWM_Modulator_t PWM_Modulate = FOC_SVPWM;
 
 FOC_Controller_t foc_core;
 static PI_Controller_t id_controller;
@@ -54,10 +59,20 @@ void MotorControl_RunIteration(void) {
         StateMachine_RequestState(STATE_FAULT);
     }
 
-    if (StateMachine_GetState() != STATE_RUNNING) {
+    MotorState_t state = StateMachine_GetState();
+
+    if (state == STATE_HALL_CALIB) {
+        // Open-loop hall table identification drives the PWM itself, through
+        // the same modulator the closed loop uses
+        HallCalib_RunIteration(PWM_Modulate);
+        return;
+    }
+
+    if (state != STATE_RUNNING) {
         // Gates are off (IDLE/FAULT): hold the controllers in reset so they do
         // not wind up against a bridge that is not conducting, and park the
         // duties at the neutral zero vector for a clean re-arm.
+        HallCalib_Abort();
         PI_Reset(&id_controller, 0.0f);
         PI_Reset(&iq_controller, 0.0f);
         PI_Reset(&speed_controller, 0.0f);
@@ -105,7 +120,7 @@ void MotorControl_RunIteration(void) {
 
     FOC_InversePark(&foc_core.v_dq, &foc_core.v_alphabeta, foc_core.angle_rad);
 
-    FOC_SVPWM(&foc_core.v_alphabeta, foc_core.vdc_bus, &foc_core.duty_cycles);
+    PWM_Modulate(&foc_core.v_alphabeta, foc_core.vdc_bus, &foc_core.duty_cycles);
     HW_PWM_SetDuties(&foc_core.duty_cycles);
 }
 

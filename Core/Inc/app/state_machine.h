@@ -7,7 +7,8 @@
 typedef enum {
     STATE_IDLE = 0,       // Safe state: Gates disabled, zero torque
     STATE_CALIBRATION,    // Blocking state: Calibrating ADC offsets
-    STATE_RUNNING         // Active state: Gates enabled, FOC running
+    STATE_RUNNING,        // Active state: Gates enabled, FOC running
+    STATE_FAULT           // Latched trip (e.g. overcurrent): gates dead until cleared to IDLE
 } MotorState_t;
 
 // Public Supervisor API

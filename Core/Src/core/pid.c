@@ -26,5 +26,13 @@ float PI_Update(PI_Controller_t *pid, float error){
 
     float output = p_term + pid->integrator;
 
+    // The integrator clamp alone lets P push the sum past the limits
+    if (output > pid->out_max){
+        output = pid->out_max;
+    }
+    else if (output < pid->out_min){
+        output = pid->out_min;
+    }
+
     return output;
 }

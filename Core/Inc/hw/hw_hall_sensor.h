@@ -14,6 +14,7 @@
 
 void HW_Hall_Init(void);
 void HW_Hall_Update_ISR(void);
+void HW_Hall_Timeout_ISR(void);
 float HW_Hall_GetElectricalAngle(void);
 float HW_Hall_GetSpeedRPM(uint8_t pole_pairs);
 

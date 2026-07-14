@@ -37,12 +37,14 @@ add_executable(${CMAKE_PROJECT_NAME}
     Core/Inc/app/state_machine.h
     Core/Inc/core/foc_math.h
     Core/Inc/core/pid.h
+    Core/Inc/core/lpf.h
     Core/Inc/hw/hw_adc.h
     Core/Inc/hw/hw_pwm.h
     Core/Inc/hw/hw_hall_sensor.h
     Core/Src/app/state_machine.c
     Core/Src/core/foc_math.c
     Core/Src/core/pid.c
+    Core/Src/core/lpf.c
     Core/Src/hw/hw_adc.c
     Core/Src/hw/hw_pwm.c
     Core/Src/hw/hw_hall_sensor.c

@@ -103,7 +103,7 @@
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : " -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard  -Wall -fdata-sections -ffunction-sections -O0 -g3 -std=gnu11"
+					"fragment" : " -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard  -Wall -fdata-sections -ffunction-sections -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard  -Wall -fdata-sections -ffunction-sections -O0 -g3 -std=gnu11"
 				}
 			],
 			"defines" : 
@@ -125,23 +125,23 @@
 			[
 				{
 					"backtrace" : 2,
-					"path" : "C:/Users/firas/Desktop/stage_IIA4/BRUCHLESS/FOC_IMP/cmake/stm32cubemx/../../Core/Inc"
+					"path" : "C:/Users/firas/Desktop/stage_IIA4/backup/test/Field-Oriented-Control-STM32/cmake/stm32cubemx/../../Core/Inc"
 				},
 				{
 					"backtrace" : 2,
-					"path" : "C:/Users/firas/Desktop/stage_IIA4/BRUCHLESS/FOC_IMP/cmake/stm32cubemx/../../Drivers/STM32F4xx_HAL_Driver/Inc"
+					"path" : "C:/Users/firas/Desktop/stage_IIA4/backup/test/Field-Oriented-Control-STM32/cmake/stm32cubemx/../../Drivers/STM32F4xx_HAL_Driver/Inc"
 				},
 				{
 					"backtrace" : 2,
-					"path" : "C:/Users/firas/Desktop/stage_IIA4/BRUCHLESS/FOC_IMP/cmake/stm32cubemx/../../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy"
+					"path" : "C:/Users/firas/Desktop/stage_IIA4/backup/test/Field-Oriented-Control-STM32/cmake/stm32cubemx/../../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy"
 				},
 				{
 					"backtrace" : 2,
-					"path" : "C:/Users/firas/Desktop/stage_IIA4/BRUCHLESS/FOC_IMP/cmake/stm32cubemx/../../Drivers/CMSIS/Device/ST/STM32F4xx/Include"
+					"path" : "C:/Users/firas/Desktop/stage_IIA4/backup/test/Field-Oriented-Control-STM32/cmake/stm32cubemx/../../Drivers/CMSIS/Device/ST/STM32F4xx/Include"
 				},
 				{
 					"backtrace" : 2,
-					"path" : "C:/Users/firas/Desktop/stage_IIA4/BRUCHLESS/FOC_IMP/cmake/stm32cubemx/../../Drivers/CMSIS/Include"
+					"path" : "C:/Users/firas/Desktop/stage_IIA4/backup/test/Field-Oriented-Control-STM32/cmake/stm32cubemx/../../Drivers/CMSIS/Include"
 				}
 			],
 			"language" : "C",

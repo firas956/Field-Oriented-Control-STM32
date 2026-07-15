@@ -60,14 +60,14 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "FOC_IMP::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-FOC_IMP-Debug-2062ea9fa679cc3e1e7a.json",
+					"jsonFile" : "target-FOC_IMP-Debug-df7c39abbc7cd179a6e1.json",
 					"name" : "FOC_IMP",
 					"projectIndex" : 0
 				},
 				{
 					"directoryIndex" : 1,
 					"id" : "STM32_Drivers::@768a070a0fe75716b479",
-					"jsonFile" : "target-STM32_Drivers-Debug-d0b5b5cc8f67328f792c.json",
+					"jsonFile" : "target-STM32_Drivers-Debug-ea3e3fcfacc0864ac844.json",
 					"name" : "STM32_Drivers",
 					"projectIndex" : 0
 				}
@@ -77,8 +77,8 @@
 	"kind" : "codemodel",
 	"paths" : 
 	{
-		"build" : "C:/Users/firas/Desktop/stage_IIA4/BRUCHLESS/FOC_IMP/build/Debug",
-		"source" : "C:/Users/firas/Desktop/stage_IIA4/BRUCHLESS/FOC_IMP"
+		"build" : "C:/Users/firas/Desktop/stage_IIA4/backup/test/Field-Oriented-Control-STM32/build/Debug",
+		"source" : "C:/Users/firas/Desktop/stage_IIA4/backup/test/Field-Oriented-Control-STM32"
 	},
 	"version" : 
 	{

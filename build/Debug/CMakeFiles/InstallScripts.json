@@ -1,8 +1,8 @@
 {
 	"InstallScripts" : 
 	[
-		"C:/Users/firas/Desktop/stage_IIA4/BRUCHLESS/FOC_IMP/build/Debug/cmake_install.cmake",
-		"C:/Users/firas/Desktop/stage_IIA4/BRUCHLESS/FOC_IMP/build/Debug/cmake/stm32cubemx/cmake_install.cmake"
+		"C:/Users/firas/Desktop/stage_IIA4/backup/test/Field-Oriented-Control-STM32/build/Debug/cmake_install.cmake",
+		"C:/Users/firas/Desktop/stage_IIA4/backup/test/Field-Oriented-Control-STM32/build/Debug/cmake/stm32cubemx/cmake_install.cmake"
 	],
 	"Parallel" : false
 }

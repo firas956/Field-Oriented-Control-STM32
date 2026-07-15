@@ -113,7 +113,7 @@ int main(void)
 
   HW_ADC_Init();
   //MotorControl_SetTorqueTarget(1.5f);
-  MotorControl_SetSpeedTarget(100.0f);
+  MotorControl_SetSpeedTarget(1000.0f);
   StateMachine_RequestState(STATE_RUNNING);
   
   HAL_ADCEx_InjectedStart(&hadc2);
@@ -124,6 +124,11 @@ int main(void)
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+
+
+  HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_1);
+  HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_2);
+  HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_3);
   /* USER CODE END 2 */
 
   /* Infinite loop */

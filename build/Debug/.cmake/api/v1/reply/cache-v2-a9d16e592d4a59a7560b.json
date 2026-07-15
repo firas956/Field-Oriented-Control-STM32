@@ -179,7 +179,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "c:/Users/firas/Desktop/stage_IIA4/BRUCHLESS/FOC_IMP/build/Debug"
+			"value" : "c:/Users/firas/Desktop/stage_IIA4/backup/test/Field-Oriented-Control-STM32/build/Debug"
 		},
 		{
 			"name" : "CMAKE_CACHE_MAJOR_VERSION",
@@ -647,7 +647,7 @@
 				}
 			],
 			"type" : "STATIC",
-			"value" : "C:/Users/firas/Desktop/stage_IIA4/BRUCHLESS/FOC_IMP/build/Debug/CMakeFiles/pkgRedirects"
+			"value" : "C:/Users/firas/Desktop/stage_IIA4/backup/test/Field-Oriented-Control-STM32/build/Debug/CMakeFiles/pkgRedirects"
 		},
 		{
 			"name" : "CMAKE_GENERATOR",
@@ -707,7 +707,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "C:/Users/firas/Desktop/stage_IIA4/BRUCHLESS/FOC_IMP"
+			"value" : "C:/Users/firas/Desktop/stage_IIA4/backup/test/Field-Oriented-Control-STM32"
 		},
 		{
 			"name" : "CMAKE_INSTALL_PREFIX",
@@ -1195,11 +1195,11 @@
 			[
 				{
 					"name" : "HELPSTRING",
-					"value" : "No help, variable specified on the command line."
+					"value" : "The CMake toolchain file"
 				}
 			],
-			"type" : "UNINITIALIZED",
-			"value" : "C:/Users/firas/Desktop/stage_IIA4/BRUCHLESS/FOC_IMP/cmake/gcc-arm-none-eabi.cmake"
+			"type" : "FILEPATH",
+			"value" : "C:/Users/firas/Desktop/stage_IIA4/backup/test/Field-Oriented-Control-STM32/cmake/gcc-arm-none-eabi.cmake"
 		},
 		{
 			"name" : "CMAKE_VERBOSE_MAKEFILE",
@@ -1227,7 +1227,7 @@
 				}
 			],
 			"type" : "STATIC",
-			"value" : "C:/Users/firas/Desktop/stage_IIA4/BRUCHLESS/FOC_IMP/build/Debug"
+			"value" : "C:/Users/firas/Desktop/stage_IIA4/backup/test/Field-Oriented-Control-STM32/build/Debug"
 		},
 		{
 			"name" : "FOC_IMP_IS_TOP_LEVEL",
@@ -1251,7 +1251,7 @@
 				}
 			],
 			"type" : "STATIC",
-			"value" : "C:/Users/firas/Desktop/stage_IIA4/BRUCHLESS/FOC_IMP"
+			"value" : "C:/Users/firas/Desktop/stage_IIA4/backup/test/Field-Oriented-Control-STM32"
 		}
 	],
 	"kind" : "cache",

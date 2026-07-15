@@ -1,6 +1,6 @@
-C:/Users/firas/Desktop/stage_IIA4/BRUCHLESS/FOC_IMP/build/Debug/CMakeFiles/FOC_IMP.dir
-C:/Users/firas/Desktop/stage_IIA4/BRUCHLESS/FOC_IMP/build/Debug/CMakeFiles/edit_cache.dir
-C:/Users/firas/Desktop/stage_IIA4/BRUCHLESS/FOC_IMP/build/Debug/CMakeFiles/rebuild_cache.dir
-C:/Users/firas/Desktop/stage_IIA4/BRUCHLESS/FOC_IMP/build/Debug/cmake/stm32cubemx/CMakeFiles/STM32_Drivers.dir
-C:/Users/firas/Desktop/stage_IIA4/BRUCHLESS/FOC_IMP/build/Debug/cmake/stm32cubemx/CMakeFiles/edit_cache.dir
-C:/Users/firas/Desktop/stage_IIA4/BRUCHLESS/FOC_IMP/build/Debug/cmake/stm32cubemx/CMakeFiles/rebuild_cache.dir
+C:/Users/firas/Desktop/stage_IIA4/backup/test/Field-Oriented-Control-STM32/build/Debug/CMakeFiles/FOC_IMP.dir
+C:/Users/firas/Desktop/stage_IIA4/backup/test/Field-Oriented-Control-STM32/build/Debug/CMakeFiles/edit_cache.dir
+C:/Users/firas/Desktop/stage_IIA4/backup/test/Field-Oriented-Control-STM32/build/Debug/CMakeFiles/rebuild_cache.dir
+C:/Users/firas/Desktop/stage_IIA4/backup/test/Field-Oriented-Control-STM32/build/Debug/cmake/stm32cubemx/CMakeFiles/STM32_Drivers.dir
+C:/Users/firas/Desktop/stage_IIA4/backup/test/Field-Oriented-Control-STM32/build/Debug/cmake/stm32cubemx/CMakeFiles/edit_cache.dir
+C:/Users/firas/Desktop/stage_IIA4/backup/test/Field-Oriented-Control-STM32/build/Debug/cmake/stm32cubemx/CMakeFiles/rebuild_cache.dir

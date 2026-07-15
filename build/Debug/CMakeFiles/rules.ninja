@@ -62,7 +62,7 @@ rule C_COMPILER__STM32_Drivers_unscanned_Debug
 # Rule for re-running cmake.
 
 rule RERUN_CMAKE
-  command = C:\Users\firas\scoop\apps\cmake\current\bin\cmake.exe --regenerate-during-build -SC:\Users\firas\Desktop\stage_IIA4\BRUCHLESS\FOC_IMP -BC:\Users\firas\Desktop\stage_IIA4\BRUCHLESS\FOC_IMP\build\Debug
+  command = C:\Users\firas\scoop\apps\cmake\current\bin\cmake.exe --regenerate-during-build -SC:\Users\firas\Desktop\stage_IIA4\backup\test\Field-Oriented-Control-STM32 -BC:\Users\firas\Desktop\stage_IIA4\backup\test\Field-Oriented-Control-STM32\build\Debug
   description = Re-running CMake...
   generator = 1
 

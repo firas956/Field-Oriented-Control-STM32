@@ -16,10 +16,10 @@ static int8_t direction = 1;
 static const float hall_angle_table[8] = {
     0.0f,                 // 0: Invalid
     1.0f * SIXTY_DEG_RAD, // 1: 300 deg
-    5.0f * SIXTY_DEG_RAD, // 2: 60 deg
-    0.0f,                 // 3: 0 deg
-    3.0f * SIXTY_DEG_RAD, // 4: 180 deg
-    2.0f * SIXTY_DEG_RAD, // 5: 240 deg
+    3.0f * SIXTY_DEG_RAD, // 2: 60 deg
+    2.0f,                 // 3: 0 deg
+    5.0f * SIXTY_DEG_RAD, // 4: 180 deg
+    0.0f * SIXTY_DEG_RAD, // 5: 240 deg
     4.0f * SIXTY_DEG_RAD, // 6: 120 deg
     0.0f                  // 7: Invalid
 };
@@ -82,7 +82,7 @@ void HW_Hall_Update_ISR(void) {
  * @brief Returns the interpolated high-resolution angle to motor_control.c
  * @note Kept lightweight and fast for 10 kHz execution context.
  */
-float HW_Hall_GetElectricalAngle(void) {
+__weak float HW_Hall_GetElectricalAngle(void) {
     // Read the time elapsed since the last Hall edge directly from the counter
     uint32_t elapsed_ticks = TIM3->CNT;
 
@@ -99,10 +99,13 @@ float HW_Hall_GetElectricalAngle(void) {
     return interpolated_angle;
 }
 
-float HW_Hall_GetSpeedRPM(uint8_t pole_pairs) {
+__weak float HW_Hall_GetSpeedRPM(uint8_t pole_pairs) {
     // Convert radians/tick to electrical radians/sec, then to mechanical RPM
     float omega_elec_rad_sec = omega_rad_per_tick * HALL_TIMER_FREQ;
     float rpm = (omega_elec_rad_sec * 60.0f) / (2.0f * PI * (float)pole_pairs);
     
     return rpm;
+}
+float HW_Hall_GetBaseAngle(void) {
+    return base_angle_rad;
 }

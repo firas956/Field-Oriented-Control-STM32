@@ -62,6 +62,12 @@ void HW_ADC_Init(void){
     HAL_ADCEx_InjectedStop(&hadc2);
 }
 
+/*
+ * Verified sensor mapping (see FOC_DEBUG_REPORT.md):
+ *   i_a = ADC1_IN0 (PA0) = leg 1 sensor = RED wire    = phase a (TIM1_CH1)
+ *   i_b = ADC2_IN1 (PA1) = leg 2 sensor = YELLOW wire = phase b (TIM1_CH2)
+ * This pairing matches the SVPWM duty mapping - do not swap.
+ */
 void HW_ADC_ReadCurrents(float *i_a, float *i_b){
     // Read registers directly for performance inside the ISR
     uint32_t raw_a = ADC1->JDR1;
@@ -69,4 +75,5 @@ void HW_ADC_ReadCurrents(float *i_a, float *i_b){
 
     *i_a = ((float)raw_a - offset_ia) * ADC_RAW_TO_AMPS;
     *i_b = ((float)raw_b - offset_ib) * ADC_RAW_TO_AMPS;
+
 }

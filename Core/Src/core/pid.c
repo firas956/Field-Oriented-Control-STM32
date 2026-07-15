@@ -15,7 +15,7 @@ void PI_Reset(PI_Controller_t *pid, float error){
 float PI_Update(PI_Controller_t *pid, float error){
     float p_term = pid->Kp * error;
     pid->integrator += pid->Ki_normalized *error;
-    
+
     //anti-windup
     if (pid->integrator > pid->out_max){
         pid->integrator = pid->out_max;
@@ -25,6 +25,15 @@ float PI_Update(PI_Controller_t *pid, float error){
     }
 
     float output = p_term + pid->integrator;
+
+    // The actuator cannot exceed [out_min, out_max]: an unclamped output
+    // (e.g. Kp * large error) would silently saturate the stages downstream.
+    if (output > pid->out_max){
+        output = pid->out_max;
+    }
+    else if (output < pid->out_min){
+        output = pid->out_min;
+    }
 
     return output;
 }

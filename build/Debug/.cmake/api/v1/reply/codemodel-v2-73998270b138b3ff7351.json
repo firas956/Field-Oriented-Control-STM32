@@ -60,7 +60,11 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "FOC_IMP::@6890427a1f51a3e7e1df",
+<<<<<<<< HEAD:build/Debug/.cmake/api/v1/reply/codemodel-v2-52c0b97f2c1c0f82cb9e.json
 					"jsonFile" : "target-FOC_IMP-Debug-df7c39abbc7cd179a6e1.json",
+========
+					"jsonFile" : "target-FOC_IMP-Debug-f3c33cd731d1997142bb.json",
+>>>>>>>> dev:build/Debug/.cmake/api/v1/reply/codemodel-v2-73998270b138b3ff7351.json
 					"name" : "FOC_IMP",
 					"projectIndex" : 0
 				},

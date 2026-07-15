@@ -2,61 +2,135 @@
 #include "hw/hw_adc.h"
 #include "hw/hw_hall_sensor.h"
 #include "hw/hw_pwm.h"
-#include "core/lpf.h"
+#include "core/hall_pll.h"
+#include "core/modulator.h"
+#include <math.h>
+
+// TODO: verify experimentally - spin the shaft one full mechanical turn by
+// hand and count hall transitions: pole_pairs = transitions / 6.
 #define MOTOR_POLE_PAIRS 2
+#define TWO_PI           6.28318530718f
+
+/*
+ * Commissioning aid: set to 1 to bypass the current/speed loops and rotate
+ * a fixed small voltage vector at a slow, forced electrical angle ramp.
+ * The motor must turn smoothly like a stepper, and foc_core.angle_rad (PLL)
+ * must track the forced angle within ~30 deg. Validates power wiring, hall
+ * table and pole-pair count in one test. Set back to 0 for normal FOC.
+ */
+
+// Maximum q-axis current the speed loop may request (amps).
+// Kept below the 6 A bench supply limit so the current loops stay in
+// their linear range instead of fighting the supply foldback.
+#define IQ_LIMIT_A       4.0f
+
+static const PWM_Modulator_t PWM_Modulate = FOC_SVPWM;
 
 FOC_Controller_t foc_core;
 static PI_Controller_t id_controller;
 static PI_Controller_t iq_controller;
 static PI_Controller_t speed_controller;
 
+// Tracking PLL turning the 60-degree hall steps into a continuous angle
+static HallPLL_t hall_pll;
+
+// Decimation counter to downsample the speed loop from 20kHz to 1kHz
+static uint16_t speed_loop_counter = 0;
+
 void MotorControl_Init(void) {
-    // 1. Zero out our telemetry structure state
-    foc_core.id_target = 0.0f; 
-    foc_core.iq_target = 0.0f; 
-    foc_core.vdc_bus   = 24.0f; 
-    foc_core.speed_target = 0.0f;   // Initialize speed target
-    foc_core.speed_measured = 0.0f; // Initialize measured speed
+    foc_core.id_target = 0.0f;
+    foc_core.iq_target = 0.0f;
+    foc_core.vdc_bus   = 24.0f;
+    foc_core.speed_target = 0.0f;
+    foc_core.speed_measured = 0.0f;
 
-    // 2. Initialize PI Loops for 10 kHz execution (Ts = 0.0001s)
-    // Adjust Kp and Ki based on your specific motor phase resistance/inductance
-    float Ts = 1.0f / 10000.0f; 
-    
-    // Output limits match max modulation index constraints (e.g., -15V to +15V duty boundaries)
-    PI_Init(&id_controller, 1.5f, 200.0f, Ts, -24.0f, 24.0f);
-    PI_Init(&iq_controller, 1.5f, 200.0f, Ts, -24.0f, 24.0f);
+    // Current Loop Time Step (20 kHz)
+    float Ts = 1.0f / 20000.0f;
 
+    // Maximum phase voltage available in the linear SVPWM range is
+    // Vdc/sqrt(3) (~13.9 V at 24 V bus), NOT Vdc. d and q share this circle.
+    float v_max = foc_core.vdc_bus * 0.57735027f;
+
+    // Initialize Current PI Loops (gains to be tuned from measured R and L:
+    // Kp = L*w_bw, Ki = R*w_bw with w_bw ~ 2*pi*500...1000 rad/s)
+    PI_Init(&id_controller, 1.5f, 200.0f, Ts, -v_max, v_max);
+    PI_Init(&iq_controller, 1.5f, 200.0f, Ts, -v_max, v_max);
+
+    // Speed Loop (1 kHz). Units: error in RPM, output in amps.
+    // 0.005 A/RPM: a 200 RPM error requests 1 A. Starting point - tune on the bench.
     float Ts_speed = 1.0f / 1000.0f;
-    PI_Init(&speed_controller, 0.5f, 0.01f, Ts_speed, -10.0f, 10.0f);
-    
+    PI_Init(&speed_controller, 0.005f, 0.02f, Ts_speed, -IQ_LIMIT_A, IQ_LIMIT_A);
+
+    // PLL bandwidth ~10 Hz (wn = sqrt(ki) = 63 rad/s, zeta = kp/(2*sqrt(ki)) = 0.79)
+    HallPLL_Init(&hall_pll, 100.0f, 4000.0f, Ts);
+    speed_loop_counter = 0;
+}
+
+/*
+ * Re-arm the controller from the current rotor position. Called by the state
+ * machine when entering STATE_RUNNING so that stale integrators / a stale
+ * PLL angle from IDLE time can never drive the first PWM cycles.
+ */
+void MotorControl_Reset(void) {
+    PI_Reset(&id_controller, 0.0f);
+    PI_Reset(&iq_controller, 0.0f);
+    PI_Reset(&speed_controller, 0.0f);
+    HallPLL_Reset(&hall_pll, HW_Hall_GetBaseAngle());
+    foc_core.iq_target = 0.0f;
+    speed_loop_counter = 0;
 }
 
 void MotorControl_RunIteration(void) {
-    
-    foc_core.speed_measured = HW_Hall_GetSpeedRPM(MOTOR_POLE_PAIRS);
-    float speed_error = foc_core.speed_target - foc_core.speed_measured;
-    foc_core.iq_target = PI_Update(&speed_controller, speed_error);
-    
+
+    // Update the tracking PLL from the coarse 60-degree hall angle
+    float coarse_hall_angle = HW_Hall_GetBaseAngle();
+    HallPLL_Update(&hall_pll, coarse_hall_angle);
+
+    foc_core.angle_rad = hall_pll.est_angle;
+
+    // Convert electrical rad/s from PLL into mechanical RPM
+    float omega_elec = hall_pll.est_speed;
+    foc_core.speed_measured = (omega_elec * 60.0f) / (TWO_PI * (float)MOTOR_POLE_PAIRS);
+
+    // Phase current acquisition (synchronized to the PWM zero vector)
     HW_ADC_ReadCurrents(&foc_core.i_abc.a, &foc_core.i_abc.b);
     foc_core.i_abc.c = -(foc_core.i_abc.a + foc_core.i_abc.b);
-    foc_core.angle_rad = HW_Hall_GetElectricalAngle();
-    
+
     FOC_Clark(&foc_core.i_abc, &foc_core.i_alphabeta);
     FOC_Park(&foc_core.i_alphabeta, &foc_core.i_dq, foc_core.angle_rad);
+    // Speed Control Loop at 1 kHz (every 20th iteration of the 20kHz loop)
+    speed_loop_counter++;
+    if (speed_loop_counter >= 20) {
+        speed_loop_counter = 0;
 
+        float speed_error = foc_core.speed_target - foc_core.speed_measured;
+        foc_core.iq_target = PI_Update(&speed_controller, speed_error);
+    }
+
+    // Current PI Controllers
     float id_error = foc_core.id_target - foc_core.i_dq.d;
     float iq_error = foc_core.iq_target - foc_core.i_dq.q;
     foc_core.v_dq.d = PI_Update(&id_controller, id_error);
     foc_core.v_dq.q = PI_Update(&iq_controller, iq_error);
-    FOC_InversePark(&foc_core.v_dq, &foc_core.v_alphabeta, foc_core.angle_rad);
+
+    // Voltage circle limiting with d-axis priority: |v_dq| <= Vdc/sqrt(3)
+    float v_max = foc_core.vdc_bus * 0.57735027f;
+    float vq_headroom_sq = v_max * v_max - foc_core.v_dq.d * foc_core.v_dq.d;
+    float vq_max = (vq_headroom_sq > 0.0f) ? sqrtf(vq_headroom_sq) : 0.0f;
+    if (foc_core.v_dq.q >  vq_max) foc_core.v_dq.q =  vq_max;
+    if (foc_core.v_dq.q < -vq_max) foc_core.v_dq.q = -vq_max;
     
-    FOC_SVPWM(&foc_core.v_alphabeta, foc_core.vdc_bus, &foc_core.duty_cycles);
+    FOC_InversePark(&foc_core.v_dq, &foc_core.v_alphabeta, foc_core.angle_rad);
+
+
+    PWM_Modulate(&foc_core.v_alphabeta, foc_core.vdc_bus, &foc_core.duty_cycles);
     HW_PWM_SetDuties(&foc_core.duty_cycles);
 }
 
 void MotorControl_SetTorqueTarget(float iq_amps) {
     foc_core.iq_target = iq_amps;
 }
+
 void MotorControl_SetSpeedTarget(float speed_rpm) {
     foc_core.speed_target = speed_rpm;
 }

@@ -4,16 +4,18 @@
 #include "hw/hw_pwm.h"
 
 static MotorState_t current_state = STATE_IDLE;
+static MotorState_t last_state    = STATE_IDLE;
 
 void StateMachine_Init(void) {
     current_state = STATE_IDLE;
-    
+    last_state    = STATE_IDLE;
+
     // Absolute safety default: Enforce immediate hardware gate shutdown
     __HAL_TIM_MOE_DISABLE_UNCONDITIONALLY(&PWM_TIMER_HANDLE);
 }
 
 void StateMachine_Update(void) {
-    
+
     switch (current_state) {
         case STATE_IDLE:
             // Keep inverter gates dead and target torque zeroed
@@ -25,19 +27,24 @@ void StateMachine_Update(void) {
             // Ensure gates are dead before calibrating
             __HAL_TIM_MOE_DISABLE_UNCONDITIONALLY(&PWM_TIMER_HANDLE);
             MotorControl_SetTorqueTarget(0.0f);
-            
+
             // Execute the blocking ADC offset calibration
             HW_ADC_Init();
-            
+
             // Automatically return to IDLE so the system waits for a deliberate RUN command
             current_state = STATE_IDLE;
             break;
 
         case STATE_RUNNING:
+            // On entry: re-arm integrators and re-seed the PLL from the
+            // current hall state so stale IDLE-time state never drives the
+            // first PWM cycles.
+            if (last_state != STATE_RUNNING) {
+                MotorControl_Reset();
+            }
+
             // Unmask the main output enable register to allow PWM to reach the IGBT gates
             __HAL_TIM_MOE_ENABLE(&PWM_TIMER_HANDLE);
-            
-            // Note: Torque is updated externally by calling MotorControl_SetTorqueTarget()
             break;
 
         default:
@@ -45,7 +52,14 @@ void StateMachine_Update(void) {
             current_state = STATE_IDLE;
             break;
     }
+
+    last_state = current_state;
 }
+
 void StateMachine_RequestState(MotorState_t new_state) {
     current_state = new_state;
+}
+
+MotorState_t StateMachine_GetState(void) {
+    return current_state;
 }

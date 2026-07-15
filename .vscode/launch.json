@@ -58,7 +58,28 @@
                 "interface/stlink.cfg",
                 "target/stm32f4x.cfg"
             ],
-            "svdFile": "${workspaceFolder}/STM32F446.svd"
+            "svdFile": "${workspaceFolder}/STM32F446.svd",
+            "graphConfig": [
+                {
+                    "label": "FOC Currents",
+                    "timespan": 5,
+                    "type": "realtime",
+                    "plots": [
+                        {
+                            "graphId": 1,
+                            "label": "Iq",
+                            "variable": "foc_core.i_dq.q",
+                            "color": "#FF0000"
+                        },
+                        {
+                            "graphId": 1,
+                            "label": "Id",
+                            "variable": "foc_core.i_dq.d",
+                            "color": "#00FF00"
+                        }
+                    ]
+                }
+            ]
         },
         {
             "showDevDebugOutput": "parsed",

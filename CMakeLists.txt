@@ -52,6 +52,11 @@ add_executable(${CMAKE_PROJECT_NAME}
     Core/Src/app/motor_control.c
     Core/Src/core/hall_pll.c
     Core/Inc/core/hall_pll.h
+    Core/Inc/core/modulator.h
+    Core/Src/core/svpwm.c
+    Core/Inc/core/svpwm.h
+    Core/Src/core/spwm.c
+    Core/Inc/core/spwm.h
     )
 
 # Add STM32CubeMX generated sources

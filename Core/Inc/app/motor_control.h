@@ -22,9 +22,9 @@ typedef struct {
 }FOC_Controller_t;
 
 void MotorControl_Init(void);
+void MotorControl_Reset(void);
 void MotorControl_RunIteration(void);
 void MotorControl_SetTorqueTarget(float iq_amps);
-void MotorControl_RunSpeedLoop(void);
 void MotorControl_SetSpeedTarget(float speed_rpm);
 
 extern FOC_Controller_t foc_core;

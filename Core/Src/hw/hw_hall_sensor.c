@@ -14,11 +14,6 @@ static int8_t direction = 1;
 
 /*
  * Electrical angle of each hall state, identified experimentally
- * (see motor_alignment_id.md / FOC_DEBUG_REPORT.md).
- * Values are SECTOR CENTERS: the rotor d-axis aligned to a known stator
- * field angle and the resulting hall state was recorded, so each state
- * covers [center-30deg, center+30deg]. The PLL smooths the +/-30deg
- * quantization. Forward rotation (increasing angle) steps through
  * states 4 -> 6 -> 2 -> 3 -> 1 -> 5 -> 4.
  */
 static const float hall_angle_table[8] = {

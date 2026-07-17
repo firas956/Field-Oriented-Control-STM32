@@ -6,22 +6,9 @@
 #include "core/modulator.h"
 #include <math.h>
 
-// TODO: verify experimentally - spin the shaft one full mechanical turn by
-// hand and count hall transitions: pole_pairs = transitions / 6.
 #define MOTOR_POLE_PAIRS 2
 #define TWO_PI           6.28318530718f
 
-/*
- * Commissioning aid: set to 1 to bypass the current/speed loops and rotate
- * a fixed small voltage vector at a slow, forced electrical angle ramp.
- * The motor must turn smoothly like a stepper, and foc_core.angle_rad (PLL)
- * must track the forced angle within ~30 deg. Validates power wiring, hall
- * table and pole-pair count in one test. Set back to 0 for normal FOC.
- */
-
-// Maximum q-axis current the speed loop may request (amps).
-// Kept below the 6 A bench supply limit so the current loops stay in
-// their linear range instead of fighting the supply foldback.
 #define IQ_LIMIT_A       4.0f
 
 static const PWM_Modulator_t PWM_Modulate = FOC_SVPWM;
@@ -113,7 +100,6 @@ void MotorControl_RunIteration(void) {
     foc_core.v_dq.d = PI_Update(&id_controller, id_error);
     foc_core.v_dq.q = PI_Update(&iq_controller, iq_error);
 
-    // Voltage circle limiting with d-axis priority: |v_dq| <= Vdc/sqrt(3)
     float v_max = foc_core.vdc_bus * 0.57735027f;
     float vq_headroom_sq = v_max * v_max - foc_core.v_dq.d * foc_core.v_dq.d;
     float vq_max = (vq_headroom_sq > 0.0f) ? sqrtf(vq_headroom_sq) : 0.0f;
@@ -121,7 +107,6 @@ void MotorControl_RunIteration(void) {
     if (foc_core.v_dq.q < -vq_max) foc_core.v_dq.q = -vq_max;
     
     FOC_InversePark(&foc_core.v_dq, &foc_core.v_alphabeta, foc_core.angle_rad);
-
 
     PWM_Modulate(&foc_core.v_alphabeta, foc_core.vdc_bus, &foc_core.duty_cycles);
     HW_PWM_SetDuties(&foc_core.duty_cycles);

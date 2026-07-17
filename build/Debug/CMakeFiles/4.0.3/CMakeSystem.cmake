@@ -3,7 +3,7 @@ set(CMAKE_HOST_SYSTEM_NAME "Windows")
 set(CMAKE_HOST_SYSTEM_VERSION "10.0.26200")
 set(CMAKE_HOST_SYSTEM_PROCESSOR "AMD64")
 
-include("C:/Users/firas/Desktop/stage_IIA4/backup/test/Field-Oriented-Control-STM32/cmake/gcc-arm-none-eabi.cmake")
+include("C:/Users/firas/Desktop/stage_IIA4/BRUCHLESS/FOC_IMP/cmake/gcc-arm-none-eabi.cmake")
 
 set(CMAKE_SYSTEM "Generic")
 set(CMAKE_SYSTEM_NAME "Generic")

@@ -1,11 +1,11 @@
 # Project Context
-We are implementing Field Oriented Control (FOC) for a BLDC motor on an STM32F446RE using C/C++ and VS Code. 
+We are implementing Field Oriented Control (FOC) for a PMSM (Permanent Magnet Synchronous Motor) on an STM32F446RE using C/C++ and VS Code. 
 
 # Hardware 
 * **MCU:** STM32F446RE (ARM Cortex-M4 with FPU)
 * **Inverter:** Semikron educational inverter
 * **Sensors:** Hall effect sensors (providing position every 60 electrical degrees)
-* **MOTOR:** 3-phase bruchless motor with unknown parameters
+* **MOTOR:** 3-phase PMSM (Permanent Magnet Synchronous Motor) with unknown parameters
 * **Power supply:** 24Vdc lab dc power supply with 6A limit
 
 # Coding Rules

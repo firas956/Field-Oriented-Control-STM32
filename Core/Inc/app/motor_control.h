@@ -5,6 +5,7 @@
 #include "core/foc_math.h"
 #include "core/pid.h"
 
+
 // The main FOC execution call step executed inside your high-frequency ISR
 typedef struct {
     float id_target;
@@ -26,6 +27,7 @@ void MotorControl_Reset(void);
 void MotorControl_RunIteration(void);
 void MotorControl_SetTorqueTarget(float iq_amps);
 void MotorControl_SetSpeedTarget(float speed_rpm);
+void Datalog_Arm(void);
 
 extern FOC_Controller_t foc_core;
 

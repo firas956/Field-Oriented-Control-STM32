@@ -112,8 +112,8 @@ int main(void)
   StateMachine_Init();
 
   HW_ADC_Init();
-  //MotorControl_SetTorqueTarget(1.5f);
-  MotorControl_SetSpeedTarget(1000.0f);
+  //MotorControl_SetTorqueTarget(1.0f);
+  MotorControl_SetSpeedTarget(2000.0f);
   StateMachine_RequestState(STATE_RUNNING);
   
   HAL_ADCEx_InjectedStart(&hadc2);
@@ -136,6 +136,10 @@ int main(void)
   {
 
     StateMachine_Update();
+
+    if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == GPIO_PIN_RESET) {
+        Datalog_Arm();
+    }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -508,6 +512,13 @@ static void MX_GPIO_Init(void)
   
 
   GPIO_InitStruct.Pin = GPIO_PIN_7 | GPIO_PIN_8; // PC7 = TIM3_CH2, PC8 = TIM3_CH3
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /* B1 user button: PC13, plain input, polled - no EXTI.
+     Nucleo has an external pull-up; pressed = LOW. */
+  GPIO_InitStruct.Pin  = GPIO_PIN_13;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
   /* USER CODE END MX_GPIO_Init_2 */
 }

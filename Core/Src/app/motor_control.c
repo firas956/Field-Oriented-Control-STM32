@@ -13,7 +13,7 @@
 
 #define IQ_LIMIT_A      4.0f
 
-static const PWM_Modulator_t PWM_Modulate = FOC_SPWM;
+static const PWM_Modulator_t PWM_Modulate = FOC_SVPWM;
 
 FOC_Controller_t foc_core;
 static PI_Controller_t id_controller;

@@ -5,6 +5,8 @@ typedef struct {
     uint8_t h2;             // PC7  (TIM3_CH2) -> hall_state bit 1
     uint8_t h3;             // PC8  (TIM3_CH3) -> hall_state bit 0
     uint8_t combined_state;
+    uint8_t glitch_count;
+    uint32_t seq_glitch_count;
 } Hall_Debug_t;
 volatile Hall_Debug_t hall_debug;
 
@@ -51,9 +53,28 @@ void HW_Hall_Init(void) {
     HAL_TIMEx_HallSensor_Start_IT(&htim3);
 }
 
+static const int8_t hall_cycle_idx[8] = { -1, 4, 2, 3, 0, 5, 1, -1 };
+
 void HW_Hall_Update_ISR(void) {
     static uint8_t prev_hall_state = 0;
     uint8_t hall_state = HW_Hall_ReadPins();
+
+    int8_t new_idx  = hall_cycle_idx[hall_state];
+    if (new_idx < 0) { hall_debug.glitch_count++; return; }      // illegal (already =0 for you)
+
+    int8_t prev_idx = hall_cycle_idx[prev_hall_state];
+    if (prev_idx >= 0) {
+        int8_t d = new_idx - prev_idx;
+        if (d >  3) d -= 6;                 // wrap to [-3,3]
+        if (d < -3) d += 6;
+        if (d == 0) return;                 // spurious edge, no sector change -> ignore
+        if (d != 1 && d != -1) {            // jump of 2+ sectors = noise glitch
+            hall_debug.seq_glitch_count++;
+            return;                         // hold last valid angle
+        }
+    }
+
+
 
     hall_debug.h1 = (hall_state & 0x04) ? 1 : 0; // PA6
     hall_debug.h2 = (hall_state & 0x02) ? 1 : 0; // PC7

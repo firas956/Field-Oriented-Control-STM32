@@ -15,6 +15,7 @@ void HallPLL_Init(HallPLL_t *pll, float kp, float ki, float dt) {
     pll->integral_term = 0.0f;
     pll->est_angle = 0.0f;
     pll->est_speed = 0.0f;
+    pll->est_speed_lpf = 0.0f;
 }
 
 void HallPLL_Update(HallPLL_t *pll, float measured_angle) {
@@ -34,6 +35,10 @@ void HallPLL_Update(HallPLL_t *pll, float measured_angle) {
 
     pll->est_speed = (pll->kp * error) + pll->integral_term;
 
+    // Integral path alone rolls off at ki/w, so the 6*f_e hall staircase
+    // ripple is ~27x smaller here than on est_speed at 20 Hz PLL bandwidth.
+    pll->est_speed_lpf = pll->integral_term;
+
     // 4. Integrate speed to get estimated angle
     pll->est_angle += pll->est_speed * pll->dt;
 
@@ -45,5 +50,6 @@ void HallPLL_Update(HallPLL_t *pll, float measured_angle) {
 void HallPLL_Reset(HallPLL_t *pll, float current_angle) {
     pll->integral_term = 0.0f;
     pll->est_speed = 0.0f;
+    pll->est_speed_lpf = 0.0f;
     pll->est_angle = current_angle;
 }

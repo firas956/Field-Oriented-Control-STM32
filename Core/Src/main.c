@@ -112,8 +112,8 @@ int main(void)
   StateMachine_Init();
 
   HW_ADC_Init();
-  //MotorControl_SetTorqueTarget(1.5f);
-  MotorControl_SetSpeedTarget(1000.0f);
+  //MotorControl_SetTorqueTarget(1.0f);
+  MotorControl_SetSpeedTarget(1500.0f);
   StateMachine_RequestState(STATE_RUNNING);
   
   HAL_ADCEx_InjectedStart(&hadc2);
@@ -136,6 +136,10 @@ int main(void)
   {
 
     StateMachine_Update();
+
+    if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == GPIO_PIN_RESET) {
+        Datalog_Arm();
+    }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -249,7 +253,7 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -260,7 +264,7 @@ static void MX_ADC1_Init(void)
   sConfigInjected.InjectedChannel = ADC_CHANNEL_0;
   sConfigInjected.InjectedRank = 1;
   sConfigInjected.InjectedNbrOfConversion = 1;
-  sConfigInjected.InjectedSamplingTime = ADC_SAMPLETIME_15CYCLES;
+  sConfigInjected.InjectedSamplingTime = ADC_SAMPLETIME_3CYCLES;
   sConfigInjected.ExternalTrigInjecConvEdge = ADC_EXTERNALTRIGINJECCONVEDGE_RISING;
   sConfigInjected.ExternalTrigInjecConv = ADC_EXTERNALTRIGINJECCONV_T1_CC4;
   sConfigInjected.AutoInjectedConv = DISABLE;
@@ -328,7 +332,7 @@ static void MX_ADC2_Init(void)
   sConfigInjected.InjectedRank = 1;
   sConfigInjected.InjectedNbrOfConversion = 1;
   sConfigInjected.InjectedSamplingTime = ADC_SAMPLETIME_15CYCLES;
-  sConfigInjected.AutoInjectedConv = ENABLE;
+  sConfigInjected.AutoInjectedConv = DISABLE;
   sConfigInjected.InjectedDiscontinuousConvMode = DISABLE;
   sConfigInjected.InjectedOffset = 0;
   if (HAL_ADCEx_InjectedConfigChannel(&hadc2, &sConfigInjected) != HAL_OK)
@@ -508,6 +512,13 @@ static void MX_GPIO_Init(void)
   
 
   GPIO_InitStruct.Pin = GPIO_PIN_7 | GPIO_PIN_8; // PC7 = TIM3_CH2, PC8 = TIM3_CH3
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /* B1 user button: PC13, plain input, polled - no EXTI.
+     Nucleo has an external pull-up; pressed = LOW. */
+  GPIO_InitStruct.Pin  = GPIO_PIN_13;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
   /* USER CODE END MX_GPIO_Init_2 */
 }

@@ -18,8 +18,9 @@ typedef struct {
     
     // Outputs
     float est_angle;        // Estimated electrical angle in radians [0, 2*PI]
-    float est_speed;        // Estimated electrical speed in rad/s
-    
+    float est_speed;        // Full PI output, drives the angle integrator
+    float est_speed_lpf;    // Integral path only: use this for the speed loop
+
 } HallPLL_t;
 
 /* Function Prototypes */

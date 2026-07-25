@@ -11,7 +11,9 @@ typedef struct {
     float id_target;
     float iq_target;
     float vdc_bus;
-    float speed_target;
+    float speed_command;      /* raw setpoint from the pot / state machine   */
+    float speed_target;       /* shaped C2 reference actually tracked        */
+    float speed_target_dot;   /* d(speed_target)/dt, for feed-forward        */
     float speed_measured;
     Phase_t i_abc;
     float angle_rad;

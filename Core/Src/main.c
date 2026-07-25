@@ -36,9 +36,11 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define MAX_SPEED_RPM  3000.0f    // full-scale pot = 3000 rpm
 /* USER CODE END PD */
-
+static float speed_inc = 0.0f;
+static float last_update =0.0f;
+static float up_down = 0;
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
 
@@ -47,6 +49,7 @@
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
 ADC_HandleTypeDef hadc2;
+ADC_HandleTypeDef hadc3;          // speed-reference pot on PC0 (ADC3_IN10)
 
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim3;
@@ -60,6 +63,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_ADC2_Init(void);
+static void MX_ADC3_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
@@ -102,6 +106,7 @@ int main(void)
   MX_GPIO_Init();
   MX_ADC1_Init();
   MX_ADC2_Init();
+  MX_ADC3_Init();
   MX_TIM1_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
@@ -113,7 +118,7 @@ int main(void)
 
   HW_ADC_Init();
   //MotorControl_SetTorqueTarget(1.0f);
-  MotorControl_SetSpeedTarget(1500.0f);
+  //MotorControl_SetSpeedTarget(2000.0f);   // start at standstill; pot sets the target in the main loop
   StateMachine_RequestState(STATE_RUNNING);
   
   HAL_ADCEx_InjectedStart(&hadc2);
@@ -134,12 +139,40 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-
-    StateMachine_Update();
-
-    if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == GPIO_PIN_RESET) {
-        Datalog_Arm();
+    
+    /* Speed reference from potentiometer: PC0 = ADC3_IN10 (Arduino A5), 0..3000 rpm */
+    /*
+    HAL_ADC_Start(&hadc3);                    
+    hadc3.Instance->CR2 |= ADC_CR2_SWSTART;   
+    if (HAL_ADC_PollForConversion(&hadc3, 10) == HAL_OK) {
+        uint32_t pot_raw = HAL_ADC_GetValue(&hadc3);
+        MotorControl_SetSpeedTarget(((float)pot_raw / 4095.0f) * MAX_SPEED_RPM);
     }
+    */
+    
+    StateMachine_Update();
+    
+    if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == GPIO_PIN_RESET) {
+        //Datalog_Arm();
+        if(HAL_GetTick() - last_update > 1000){
+            if(speed_inc >=2100  )
+              up_down = 1;
+              
+            if(speed_inc <=700) 
+              up_down = 0;
+            
+            if(up_down == 0)
+              speed_inc += 700;
+            else
+              speed_inc -= 700;
+            last_update = HAL_GetTick();
+        }
+        MotorControl_SetSpeedTarget(speed_inc);
+    }
+       /*
+      if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == GPIO_PIN_RESET) {
+        Datalog_Arm();
+      }*/
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -343,6 +376,43 @@ static void MX_ADC2_Init(void)
 
   /* USER CODE END ADC2_Init 2 */
 
+}
+
+/**
+  * @brief ADC3 Initialization Function (speed-reference potentiometer)
+  * @param None
+  * @retval None
+  */
+static void MX_ADC3_Init(void)
+{
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* Independent single-shot regular conversion, software-triggered, polled from main loop */
+  hadc3.Instance = ADC3;
+  hadc3.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;   // 90MHz/4 = 22.5MHz (within 36MHz max)
+  hadc3.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc3.Init.ScanConvMode = DISABLE;
+  hadc3.Init.ContinuousConvMode = DISABLE;
+  hadc3.Init.DiscontinuousConvMode = DISABLE;
+  hadc3.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc3.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc3.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc3.Init.NbrOfConversion = 1;
+  hadc3.Init.DMAContinuousRequests = DISABLE;
+  hadc3.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  if (HAL_ADC_Init(&hadc3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /* PC0 = ADC3_IN10. Long sample time — a pot is a high-impedance source. */
+  sConfig.Channel = ADC_CHANNEL_10;
+  sConfig.Rank = 1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_84CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc3, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
 }
 
 /**

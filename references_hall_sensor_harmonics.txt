@@ -1,0 +1,170 @@
+================================================================================
+REFERENCES - HALL SENSOR POSITION ERROR AND CURRENT HARMONICS IN PMSM FOC
+================================================================================
+Topic : Why misplaced Hall-effect sensors produce a 3rd harmonic in the phase
+        current spectrum of a vector-controlled PMSM.
+Project: FOC_IMP - STM32F446RE / PMSM / Hall sensors + tracking PLL
+Compiled: 2026-07-23
+================================================================================
+
+
+--------------------------------------------------------------------------------
+1. REFERENCE-FRAME THEORY  (the h <-> h+/-1 harmonic mapping)
+--------------------------------------------------------------------------------
+The canonical derivation of how a component at harmonic h in the rotating (dq)
+frame appears at harmonics h+/-1 in the stationary (abc) frame. This is the
+foundation of the whole argument.
+
+[1] P. C. Krause, O. Wasynczuk, S. D. Sudhoff, S. Pekarek,
+    "Analysis of Electric Machinery and Drive Systems", 3rd ed.,
+    Wiley-IEEE Press, 2013.
+    -> See the "Reference Frame Theory" chapter.
+
+[2] D. W. Novotny, T. A. Lipo,
+    "Vector Control and Dynamics of AC Drives",
+    Oxford University Press, 1996.
+    -> Same material, more drive-oriented.
+
+[3] S.-K. Sul,
+    "Control of Electric Machine Drive Systems",
+    Wiley-IEEE Press, 2011.
+    -> Most practical of the three. Covers dead-time effects, current
+       measurement error and position sensor error as explicit non-ideality
+       analyses. Best single book for this project.
+
+
+--------------------------------------------------------------------------------
+2. METHODOLOGICAL TEMPLATE  (same derivation, applied to current sensors)
+--------------------------------------------------------------------------------
+The single most useful paper: it propagates a sensor non-ideality through the
+Park transform and shows which harmonic results - exactly the derivation style
+needed here, just for current sensing instead of position.
+
+[4] D.-W. Chung, S.-K. Sul,
+    "Analysis and compensation of current measurement error in
+     vector-controlled AC motor drives",
+    IEEE Transactions on Industry Applications, vol. 34, no. 2,
+    pp. 340-345, 1998.
+    URL: https://ieeexplore.ieee.org/iel3/28/14535/00663477.pdf
+
+    Key results:
+      - OFFSET  error -> torque oscillates at 1x stator electrical frequency
+      - SCALING error -> torque oscillates at 2x stator electrical frequency
+    A 2nd harmonic in dq maps to the 1st and 3rd harmonics in abc, so a
+    current-sensor GAIN MISMATCH is an independent cause of a 3rd harmonic
+    with an identical signature. Directly relevant here because i_c is
+    reconstructed as -(i_a + i_b), so only two channels are measured.
+
+[5] "Diminution of Current-Measurement Error for Vector-Controlled AC
+     Motor Drives",
+    IEEE Transactions on Industry Applications (follow-up work).
+    URL: https://ieeexplore.ieee.org/document/1703718/
+
+
+--------------------------------------------------------------------------------
+3. HALL SENSOR ASYMMETRY / MISPLACEMENT
+--------------------------------------------------------------------------------
+[6] N. Samoylenko, Q. Han, J. Jatskevich,
+    "Dynamic Performance of Brushless DC Motors With Unbalanced Hall Sensors",
+    IEEE Transactions on Energy Conversion, vol. 23, no. 3,
+    pp. 752-763, 2008.
+    URL: https://ieeexplore.ieee.org/document/4537158/
+
+    Explicitly drops the usual assumption that Hall sensors are ideally placed
+    120 electrical degrees apart, and shows that misplaced sensors cause
+    unbalanced inverter/motor phase operation which INCREASES THE LOW-FREQUENCY
+    HARMONICS in torque ripple.
+    CAVEAT: framed for six-step BLDC, not FOC with angle interpolation. The
+    cause transfers directly; the propagation path in an FOC drive is through
+    the Park transform rather than commutation timing.
+
+[7] N. Samoylenko, Q. Han, J. Jatskevich,
+    "Improving Dynamic Performance of Low-Precision Brushless DC Motors with
+     Unbalanced Hall Sensors" (companion conference paper, mitigation).
+    URL: https://ieeexplore.ieee.org/document/4275987/
+
+
+--------------------------------------------------------------------------------
+4. HALL SENSORS IN PMSM VECTOR CONTROL (interpolation / observers)
+--------------------------------------------------------------------------------
+Closer to this project's actual architecture (FOC + angle interpolation).
+
+[8] "Application of Hall Position Sensor in Control and Position Estimation
+     of PMSM - A Review".
+    URL: https://www.researchgate.net/publication/372900280_Application_of_
+         Hall_Position_Sensor_in_Control_and_Position_Estimation_of_PMSM_-_A_Review
+    -> Good survey and a citation mine.
+
+[9] "Effect of position sensor error on the performance of PMSM drives for
+     low torque ripple applications".
+    URL: https://www.researchgate.net/publication/261319918_Effect_of_position_
+         sensor_error_on_the_performance_of_PMSM_drives_for_low_torque_ripple_applications
+    -> Position-error -> torque-ripple analysis in a vector-control context.
+
+[10] "Accurate Angle Representation From Misplaced Hall-Effect Switch Sensors
+      for Low-Cost Electric Vehicle Applications".
+     URL: https://www.researchgate.net/publication/363050160_Accurate_Angle_
+          Representation_From_Misplaced_Hall-Effect_Switch_Sensors_for_Low-Cost_
+          Electric_Vehicle_Applications
+     -> Misplacement compensation; essentially the 6-entry sector-calibration
+        fix proposed for this project.
+
+
+================================================================================
+5. HOW TO CITE THE ARGUMENT  (important - calibration note)
+================================================================================
+No single source found states the full chain
+
+    "Hall spacing asymmetry -> 2nd harmonic in dq -> 3rd harmonic in phase
+     current"
+
+in those words. It is a COMPOSITION of two individually rigorous, standard
+results. For a report, present it as:
+
+  (a) Derive the 180-degree periodicity of the sector-boundary errors directly
+      (four lines - see the derivation summary below).
+  (b) Invoke [1] (Krause) for the dq <-> abc harmonic mapping.
+  (c) Cite [4] (Chung & Sul) as the precedent for this class of analysis, and
+      [6] (Samoylenko et al.) for the misplaced-Hall cause.
+
+Do NOT attribute the composed claim to a single reference.
+
+
+--------------------------------------------------------------------------------
+DERIVATION SUMMARY (for step (a) above)
+--------------------------------------------------------------------------------
+Sensor A is high for 180 deg, giving edges at theta_A and theta_A+180.
+Nominally B is at theta_A+120 / +300, and C at theta_A+240 / +60.
+Adding a per-sensor placement error (both edges of a sensor shift together):
+
+    0+dA    60+dC   120+dB   180+dA   240+dC   300+dB
+
+The error sequence across the six sectors is  dA, dC, dB, dA, dC, dB  - it
+repeats after THREE sectors = 180 electrical degrees. A 180-deg-periodic angle
+error is a 2nd harmonic (plus 4th, 6th, ...). By the mapping in [1]:
+
+    2nd harmonic in dq  ->  1st and 3rd harmonics in abc
+
+Parity diagnostic:
+    sensor SPACING / placement error  -> even angle-error harmonics (2,4,6)
+                                      -> ODD current harmonics (1,3,5,7)
+    DUTY asymmetry (threshold, hysteresis) -> odd angle-error harmonics (1,3,5)
+                                      -> EVEN current harmonics (2,4,6)
+
+Note: the 3rd harmonic produced this way is POSITIVE-SEQUENCE (the three phase
+currents sum to zero), so it flows normally in a 3-wire star connection. Only
+the ZERO-SEQUENCE (triplen) 3rd harmonic is blocked by the isolated neutral -
+which is why the PMSM's own 3rd-harmonic back-EMF does not show up in the
+current.
+
+
+================================================================================
+6. FURTHER SEARCH TERMS
+================================================================================
+    "position sensor error torque ripple PMSM"
+    "Hall sensor misalignment compensation"
+    "low-resolution Hall effect rotor position estimation"
+    "vector tracking observer Hall PMSM"
+    "current measurement scaling error vector control"
+
+================================================================================

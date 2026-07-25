@@ -1,3 +1,6 @@
 # Reference manuals / datasheets (large, do not track)
 rm0390-stm32f446xx-advanced-armbased-32bit-mcus-stmicroelectronics-1.pdf
 *.pdf
+
+# CMake / ninja build tree: object files, ELF, and caches holding absolute paths
+build/

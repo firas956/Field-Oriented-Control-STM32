@@ -57,6 +57,12 @@ add_executable(${CMAKE_PROJECT_NAME}
     Core/Inc/core/svpwm.h
     Core/Src/core/spwm.c
     Core/Inc/core/spwm.h
+    Core/Src/core/smc.c
+    Core/Inc/core/smc.h
+    Core/Src/core/smc_current.c
+    Core/Inc/core/smc_current.h
+    Core/Src/core/speed_ref.c
+    Core/Inc/core/speed_ref.h
     )
 
 # Add STM32CubeMX generated sources

@@ -6,12 +6,15 @@
 #include "hw/hw_pwm.h"
 #include "core/hall_pll.h"
 #include "core/modulator.h"
+#include "core/smc.h"
+#include "core/smc_current.h"
+#include "core/speed_ref.h"
 #include <math.h>
 
 #define MOTOR_POLE_PAIRS 2
 #define TWO_PI           6.28318530718f
 
-#define IQ_LIMIT_A      4.0f
+#define IQ_LIMIT_A      6.0f
 
 static const PWM_Modulator_t PWM_Modulate = FOC_SVPWM;
 
@@ -19,8 +22,28 @@ FOC_Controller_t foc_core;
 static PI_Controller_t id_controller;
 static PI_Controller_t iq_controller;
 static PI_Controller_t speed_controller;
+static SMC_Controller_t speed_smc;
+static CSMC_Controller_t current_smc;
+static SpeedRef_t speed_ref_gen;
 static LPC_Filter_t filtered_ia;
 static LPC_Filter_t filtered_ib;
+
+/* ---- Speed-controller strategy selection (mirrors PWM_Modulate) ----
+ * Signature: mechanical reference & measurement [RPM] -> iq* [A].
+ * Switch PID <-> sliding mode with the one SpeedControl line below.       */
+typedef float (*SpeedController_t)(float ref_rpm, float meas_rpm);
+static float Speed_PI (float ref_rpm, float meas_rpm);
+static float Speed_SMC(float ref_rpm, float meas_rpm);
+static const SpeedController_t SpeedControl = Speed_SMC;   /* Speed_PI or Speed_SMC */
+
+/* ---- Current-controller strategy selection (mirrors PWM_Modulate) ----
+ * Signature: dq references & measurements + electrical speed -> v_dq.
+ * Switch PI <-> sliding mode with the one CurrentControl line below.      */
+typedef void (*CurrentController_t)(const DQ_t *i_ref, const DQ_t *i_meas,
+                                    float omega_elec, DQ_t *v_dq);
+static void Current_PI (const DQ_t *i_ref, const DQ_t *i_meas, float we, DQ_t *v_dq);
+static void Current_SMC(const DQ_t *i_ref, const DQ_t *i_meas, float we, DQ_t *v_dq);
+static const CurrentController_t CurrentControl = Current_PI; /* Current_PI or Current_SMC */
 // Tracking PLL turning the 60-degree hall steps into a continuous angle
 static HallPLL_t hall_pll;
 
@@ -33,10 +56,79 @@ static uint16_t speed_loop_counter = 0;
 volatile uint32_t datalog_armed = 0;      /* write 1 from debugger to start */
 volatile uint32_t datalog_done  = 0;      /* set by ISR when buffer is full */
 static uint32_t   datalog_index = 0;
-
 //static float ia_f = 0.0f;
 //static float ib_f = 0.0f;
+
 float datalog_buf[DATALOG_N];
+
+/* ---- Phase-current offset trim (period-synchronous averaging) ------------
+ * Over one exact electrical period the fundamental -- and every harmonic of
+ * it -- integrates to zero, so the mean of ia over that window IS the
+ * residual offset left over by the standstill ADC calibration. The window
+ * closes on the PLL angle, not on a timer, so it stays exactly Te at any
+ * speed. Armed only in the static regime; outside it the last estimate is
+ * HELD, never zeroed -- the drift is thermal, i.e. orders of magnitude
+ * slower than the transient we are stepping around.                        */
+#define PI_F                3.14159265359f
+#define IOFF_MIN_WE_RAD_S   100.0f  /* PLL trustworthy from ~480 rpm mech    */
+#define IOFF_MAX_SAMPLES    4000u   /* window guard: 200 ms at 20 kHz        */
+#define IOFF_SPEED_TOL_RPM  50.0f   /* |target - measured| for "settled"     */
+#define IOFF_ALPHA          0.15f   /* per-period correction fraction        */
+#define IOFF_CLAMP_A        0.5f    /* sanity clamp; real drift is << this   */
+
+float ioff_a = 0.0f;                /* applied correction, phase a [A]      */
+float ioff_b = 0.0f;                /* applied correction, phase b [A]      */
+static float    ioff_sum_a   = 0.0f;
+static float    ioff_sum_b   = 0.0f;
+static float    ioff_theta   = 0.0f;   /* angle swept since window opened   */
+static float    ioff_prev_th = 0.0f;
+static uint32_t ioff_n       = 0u;
+
+static void IOffset_ResetWindow(float theta)
+{
+    ioff_sum_a   = 0.0f;
+    ioff_sum_b   = 0.0f;
+    ioff_theta   = 0.0f;
+    ioff_prev_th = theta;
+    ioff_n       = 0u;
+}
+
+/* Feed the CORRECTED currents (raw minus the current estimate): that closes
+ * the loop, so ioff converges on the true offset instead of ramping away.  */
+static void IOffset_Update(float ia, float ib, float theta, float we)
+{
+    if (fabsf(we) < IOFF_MIN_WE_RAD_S ||
+        fabsf(foc_core.speed_target - foc_core.speed_measured) > IOFF_SPEED_TOL_RPM) {
+        IOffset_ResetWindow(theta);      /* hold the estimate, drop the window */
+        return;
+    }
+
+    /* Unwrapped angle swept since the window opened (direction agnostic) */
+    float dth = theta - ioff_prev_th;
+    if (dth >  PI_F) dth -= TWO_PI;
+    if (dth < -PI_F) dth += TWO_PI;
+    ioff_prev_th = theta;
+    ioff_theta  += dth;
+
+    ioff_sum_a += ia;
+    ioff_sum_b += ib;
+    ioff_n++;
+
+    if (ioff_n > IOFF_MAX_SAMPLES) { IOffset_ResetWindow(theta); return; }
+    if (fabsf(ioff_theta) < TWO_PI) return;          /* window still open */
+
+    /* One full electrical period accumulated: the mean is the residual */
+    float inv_n = 1.0f / (float)ioff_n;
+    ioff_a += IOFF_ALPHA * (ioff_sum_a * inv_n);
+    ioff_b += IOFF_ALPHA * (ioff_sum_b * inv_n);
+
+    if (ioff_a >  IOFF_CLAMP_A) ioff_a =  IOFF_CLAMP_A;
+    if (ioff_a < -IOFF_CLAMP_A) ioff_a = -IOFF_CLAMP_A;
+    if (ioff_b >  IOFF_CLAMP_A) ioff_b =  IOFF_CLAMP_A;
+    if (ioff_b < -IOFF_CLAMP_A) ioff_b = -IOFF_CLAMP_A;
+
+    IOffset_ResetWindow(theta);
+}
 
 /* Breakpoint anchor: gdb breakpoint goes on the line inside this function */
 __attribute__((noinline)) static void Datalog_CaptureDone(void)
@@ -53,6 +145,7 @@ void Datalog_Arm(void)
         datalog_armed = 1;   /* written last: this is what gates the ISR */
         
         
+        
     }
 }
 
@@ -60,7 +153,9 @@ void MotorControl_Init(void) {
     foc_core.id_target = 0.0f;
     foc_core.iq_target = 0.0f;
     foc_core.vdc_bus   = 24.0f;
-    foc_core.speed_target = 0.0f;
+    foc_core.speed_command    = 0.0f;
+    foc_core.speed_target     = 0.0f;
+    foc_core.speed_target_dot = 0.0f;
     foc_core.speed_measured = 0.0f;
 
     // Current Loop Time Step (20 kHz)
@@ -81,7 +176,47 @@ void MotorControl_Init(void) {
     // Speed Loop (1 kHz). Units: error in RPM, output in amps.
     // 0.005 A/RPM: a 200 RPM error requests 1 A. Starting point - tune on the bench.
     float Ts_speed = 1.0f / 1000.0f;
-    PI_Init(&speed_controller, 0.0002f, 0.002f, Ts_speed, -IQ_LIMIT_A, IQ_LIMIT_A);
+    PI_Init(&speed_controller, 0.002f, 0.022f, Ts_speed, -IQ_LIMIT_A, IQ_LIMIT_A);
+
+    // Discrete Integral Sliding-Mode speed controller (alternative to the PI).
+    // Plant: J, F from mechanical ID; Kt = 1.5*p*psi_r = 1.5*2*0.02 = 0.06.
+    // Gains start ~ equivalent to the working PI, plus the switching robustness.
+    SMC_Init(&speed_smc,
+             3.0e-5f,    // J   [kg.m^2]
+             7.0e-5f,    // F   [N.m.s/rad]
+             0.06f,      // Kt  [N.m/A] = 1.5*p*lambda
+             Ts_speed,   // Ts  [s]
+             1.0f,       // c1
+             0.02f,      // c2   (integral weight)
+             0.98f,      // eta = 1 - q*Ts   (q = 20 1/s)
+             200.0f,     // k    (k*Ts = 0.2 < 1)
+             2.0f,       // phi  boundary layer [rad/s] (~19 rpm)
+             -IQ_LIMIT_A, IQ_LIMIT_A);
+
+    // Discrete Integral Sliding-Mode current controller (alternative to the
+    // id/iq PIs). Gains chosen so the LINEAR part reproduces the PI above:
+    //   Kp = q*L + R, Ki = (c2/c1)*q*L  ->  same wn = 622 rad/s, zeta = 1.
+    // On top it adds the exact R*i + back-EMF feed-forward and a
+    // +/-(k*L/c1) V switching term (0.80 V) to absorb dead-time / model error.
+    CSMC_Init(&current_smc,
+              MOTOR_L, MOTOR_R_PH, lambda, Ts,
+              1.0f,                          // c1
+              MOTOR_R_PH * Ts / MOTOR_L,     // c2 = c1*R*Ts/L (cancels the L/R pole)
+              1.0f - w_bw * Ts,              // eta = 1 - q*Ts, q = 2*pi*I_LOOP_BW_HZ
+              150.0f,                        // k   -> +/-0.80 V switching authority
+              0.1f,                          // phi boundary layer [A]
+              v_max);
+
+    // Smooth speed reference: triple integrator -> W/Wtgt = p^3/(s+p)^3.
+    // p = 30 rad/s gives a monotonic, zero-overshoot transition in ~200 ms,
+    // well inside the closed-loop wn = 51 rad/s so the motor can track it.
+    // The limits are safety clamps only (a normal 700 rpm step peaks at
+    // ~5700 rpm/s, ~0.6e6 rpm/s^2), never active in normal operation.
+    SpeedRef_Init(&speed_ref_gen, Ts_speed,
+                  30.0f,      // pole p [rad/s]  -> transition ~6/p = 200 ms
+                  20000.0f,   // a_max [rpm/s]
+                  2.0e6f,     // j_max [rpm/s^2]
+                  2.0e8f);    // s_max [rpm/s^3]
     //LPF_Init(&filtered_ia, 0.1, 0);
     //LPF_Init(&filtered_ib, 0.1, 0);
     //LPF_Init(&speed_controller, 0.1, 0);
@@ -89,6 +224,7 @@ void MotorControl_Init(void) {
     // Valid down to ~500 RPM (needs ~5 hall edges per PLL time constant).
     HallPLL_Init(&hall_pll, 251.3f, 15791.0f, Ts);
     speed_loop_counter = 0;
+    IOffset_ResetWindow(0.0f);
 }
 
 /*
@@ -100,7 +236,13 @@ void MotorControl_Reset(void) {
     PI_Reset(&id_controller, 0.0f);
     PI_Reset(&iq_controller, 0.0f);
     PI_Reset(&speed_controller, 0.0f);
+    SMC_Reset(&speed_smc);
+    CSMC_Reset(&current_smc);
+    SpeedRef_Reset(&speed_ref_gen, foc_core.speed_measured);  /* bumpless start */
     HallPLL_Reset(&hall_pll, HW_Hall_GetBaseAngle());
+    /* Drop the averaging window but KEEP ioff_a/ioff_b: the sensor drift is
+     * thermal, so the last estimate is still the best one after a restart. */
+    IOffset_ResetWindow(HW_Hall_GetBaseAngle());
     foc_core.iq_target = 0.0f;
     speed_loop_counter = 0;
 }
@@ -119,8 +261,13 @@ void MotorControl_RunIteration(void) {
 
     // Phase current acquisition (synchronized to the PWM zero vector)
     HW_ADC_ReadCurrents(&foc_core.i_abc.a, &foc_core.i_abc.b);
-    //foc_core.i_abc.a = LPF_Update(&filtered_ia,foc_core.i_abc.a);
-    //foc_core.i_abc.b = LPF_Update(&filtered_ib,foc_core.i_abc.b);
+    
+    foc_core.i_abc.a -= ioff_a;
+    foc_core.i_abc.b -= ioff_b;
+    IOffset_Update(foc_core.i_abc.a, foc_core.i_abc.b,
+                   foc_core.angle_rad, omega_elec);
+    
+    // Only valid once a and b are offset-free: the star point sums to zero
     foc_core.i_abc.c = -(foc_core.i_abc.a + foc_core.i_abc.b);
 
     FOC_Clark(&foc_core.i_abc, &foc_core.i_alphabeta);
@@ -130,26 +277,20 @@ void MotorControl_RunIteration(void) {
     if (speed_loop_counter >= 20) {
         speed_loop_counter = 0;
 
-        float speed_error = foc_core.speed_target - foc_core.speed_measured;
-        foc_core.iq_target = PI_Update(&speed_controller, speed_error);
-        
+        // Generate the tracked target: shape the raw command into a C2
+        // reference (triple integrator) and publish it as speed_target.
+        foc_core.speed_target     = SpeedRef_Update(&speed_ref_gen, foc_core.speed_command);
+        foc_core.speed_target_dot = speed_ref_gen.a;
+
+        foc_core.iq_target = SpeedControl(foc_core.speed_target, foc_core.speed_measured);
+
     }
     
     //foc_core.iq_target = 0.4;
     // Current PI Controllers
-    float id_error = foc_core.id_target - foc_core.i_dq.d;
-    float iq_error = foc_core.iq_target - foc_core.i_dq.q;
-    foc_core.v_dq.d = PI_Update(&id_controller, id_error);
-    foc_core.v_dq.q = PI_Update(&iq_controller, iq_error);
-
-    /*float ed = -foc_core.i_dq.q * MOTOR_L *foc_core.speed_measured;
-    float eq = ((foc_core.i_dq.d * MOTOR_L)+lambda) *foc_core.speed_measured;
-
-    foc_core.v_dq.d = foc_core.v_dq.d + ed;
-    foc_core.v_dq.q = foc_core.v_dq.q + eq;*/
-
-
-
+    DQ_t i_ref = { foc_core.id_target, foc_core.iq_target };
+    CurrentControl(&i_ref, &foc_core.i_dq, omega_elec, &foc_core.v_dq);
+    
     float v_max = foc_core.vdc_bus * 0.57735027f;
     float vq_headroom_sq = v_max * v_max - foc_core.v_dq.d * foc_core.v_dq.d;
     float vq_max = (vq_headroom_sq > 0.0f) ? sqrtf(vq_headroom_sq) : 0.0f;
@@ -164,14 +305,17 @@ void MotorControl_RunIteration(void) {
     /* ---- Datalog: keep exactly ONE channel line uncommented ---- */
     if (datalog_armed) {
         if (datalog_index < DATALOG_N) {
-            //datalog_buf[datalog_index++] = foc_core.speed_measured;*/
+          
+            datalog_buf[datalog_index++] = foc_core.speed_measured;
             //datalog_buf[datalog_index++] = foc_core.i_dq.d;
             //datalog_buf[datalog_index++] = foc_core.i_dq.q;
             //datalog_buf[datalog_index++] = foc_core.v_dq.q ;
             //datalog_buf[datalog_index++] = foc_core.angle_rad;
             //datalog_buf[datalog_index++] = foc_core.iq_target;
             //datalog_buf[datalog_index++] = ia_f;
-            datalog_buf[datalog_index++] = foc_core.i_abc.a;
+            //datalog_buf[datalog_index++] = foc_core.i_abc.a;
+            
+            
         } else {
             datalog_armed = 0;
             Datalog_CaptureDone();
@@ -184,5 +328,24 @@ void MotorControl_SetTorqueTarget(float iq_amps) {
 }
 
 void MotorControl_SetSpeedTarget(float speed_rpm) {
-    foc_core.speed_target = speed_rpm;
+    foc_core.speed_command = speed_rpm;   /* shaped into speed_target at 1 kHz */
+}
+
+/* ---- Speed-controller strategy wrappers (see SpeedControl near the top) ---- */
+static float Speed_PI(float ref_rpm, float meas_rpm) {
+    return PI_Update(&speed_controller, ref_rpm - meas_rpm);
+}
+static float Speed_SMC(float ref_rpm, float meas_rpm) {
+    const float RPM2RAD = TWO_PI / 60.0f;            // mechanical rpm -> rad/s
+    return SMC_Update(&speed_smc, ref_rpm * RPM2RAD, meas_rpm * RPM2RAD);
+}
+
+/* ---- Current-controller strategy wrappers (see CurrentControl near the top) ---- */
+static void Current_PI(const DQ_t *i_ref, const DQ_t *i_meas, float we, DQ_t *v_dq) {
+    (void)we;                                        // PI has no decoupling term
+    v_dq->d = PI_Update(&id_controller, i_ref->d - i_meas->d);
+    v_dq->q = PI_Update(&iq_controller, i_ref->q - i_meas->q);
+}
+static void Current_SMC(const DQ_t *i_ref, const DQ_t *i_meas, float we, DQ_t *v_dq) {
+    CSMC_Update(&current_smc, i_ref, i_meas, we, v_dq);
 }

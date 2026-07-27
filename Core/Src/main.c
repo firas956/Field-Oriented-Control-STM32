@@ -151,7 +151,7 @@ int main(void)
     */
     
     StateMachine_Update();
-    
+    /*
     if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == GPIO_PIN_RESET) {
         //Datalog_Arm();
         if(HAL_GetTick() - last_update > 1000){
@@ -169,10 +169,17 @@ int main(void)
         }
         MotorControl_SetSpeedTarget(speed_inc);
     }
-       /*
+       */
+      if(HAL_GetTick() - last_update > 1000 && (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == GPIO_PIN_RESET) && up_down == 0){
+        MotorControl_SetSpeedTarget(2000);
+        up_down = 1;
+        last_update = HAL_GetTick();
+      }
+      if(HAL_GetTick() - last_update > 1000){
       if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == GPIO_PIN_RESET) {
         Datalog_Arm();
-      }*/
+      }
+    }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

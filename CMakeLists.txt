@@ -63,6 +63,12 @@ add_executable(${CMAKE_PROJECT_NAME}
     Core/Inc/core/smc_current.h
     Core/Src/core/speed_ref.c
     Core/Inc/core/speed_ref.h
+    Core/Src/core/offset_compensator.c
+    Core/Inc/core/offset_compensator.h
+    Core/Src/core/harm2_compensator.c
+    Core/Inc/core/harm2_compensator.h
+    Core/Src/core/harm6_compensator.c
+    Core/Inc/core/harm6_compensator.h
     )
 
 # Add STM32CubeMX generated sources

@@ -9,6 +9,9 @@
 #include "core/smc.h"
 #include "core/smc_current.h"
 #include "core/speed_ref.h"
+#include "core/offset_compensator.h"
+#include "core/harm2_compensator.h"
+#include "core/harm6_compensator.h"
 #include <math.h>
 
 #define MOTOR_POLE_PAIRS 2
@@ -61,74 +64,36 @@ static uint32_t   datalog_index = 0;
 
 float datalog_buf[DATALOG_N];
 
-/* ---- Phase-current offset trim (period-synchronous averaging) ------------
- * Over one exact electrical period the fundamental -- and every harmonic of
- * it -- integrates to zero, so the mean of ia over that window IS the
- * residual offset left over by the standstill ADC calibration. The window
- * closes on the PLL angle, not on a timer, so it stays exactly Te at any
- * speed. Armed only in the static regime; outside it the last estimate is
- * HELD, never zeroed -- the drift is thermal, i.e. orders of magnitude
- * slower than the transient we are stepping around.                        */
-#define PI_F                3.14159265359f
+/* Phase-current offset trim; see core/offset_compensator.h for the method.
+ * Non-static so a gdb session / the datalogger can watch curr_offset.off_a. */
 #define IOFF_MIN_WE_RAD_S   100.0f  /* PLL trustworthy from ~480 rpm mech    */
 #define IOFF_MAX_SAMPLES    4000u   /* window guard: 200 ms at 20 kHz        */
 #define IOFF_SPEED_TOL_RPM  50.0f   /* |target - measured| for "settled"     */
 #define IOFF_ALPHA          0.15f   /* per-period correction fraction        */
 #define IOFF_CLAMP_A        0.5f    /* sanity clamp; real drift is << this   */
 
-float ioff_a = 0.0f;                /* applied correction, phase a [A]      */
-float ioff_b = 0.0f;                /* applied correction, phase b [A]      */
-static float    ioff_sum_a   = 0.0f;
-static float    ioff_sum_b   = 0.0f;
-static float    ioff_theta   = 0.0f;   /* angle swept since window opened   */
-static float    ioff_prev_th = 0.0f;
-static uint32_t ioff_n       = 0u;
+OffsetComp_t curr_offset;
 
-static void IOffset_ResetWindow(float theta)
-{
-    ioff_sum_a   = 0.0f;
-    ioff_sum_b   = 0.0f;
-    ioff_theta   = 0.0f;
-    ioff_prev_th = theta;
-    ioff_n       = 0u;
-}
+/* 2nd-harmonic (2*we) trim in dq; see core/harm2_compensator.h for the method.
+ * Non-static so a gdb session / the datalogger can watch harm2_comp.aq. */
+#define IH2_MIN_WE_RAD_S    100.0f  /* same PLL-trust floor as the offset trim */
+#define IH2_MIN_MAG_A       0.20f   /* below this |idq| the window is noise     */
+#define IH2_MAX_SAMPLES     4000u   /* window guard: 200 ms at 20 kHz           */
+#define IH2_ALPHA           0.10f   /* per-period correction fraction           */
+#define IH2_CLAMP           0.15f   /* 15% of |idq|; a real mismatch is << this */
+#define IH2_MAG_BETA        0.001f  /* |idq| tracker: 20 rad/s, 1/10 of 2*we_min */
 
-/* Feed the CORRECTED currents (raw minus the current estimate): that closes
- * the loop, so ioff converges on the true offset instead of ramping away.  */
-static void IOffset_Update(float ia, float ib, float theta, float we)
-{
-    if (fabsf(we) < IOFF_MIN_WE_RAD_S ||
-        fabsf(foc_core.speed_target - foc_core.speed_measured) > IOFF_SPEED_TOL_RPM) {
-        IOffset_ResetWindow(theta);      /* hold the estimate, drop the window */
-        return;
-    }
+Harm2Comp_t harm2_comp;
 
-    /* Unwrapped angle swept since the window opened (direction agnostic) */
-    float dth = theta - ioff_prev_th;
-    if (dth >  PI_F) dth -= TWO_PI;
-    if (dth < -PI_F) dth += TWO_PI;
-    ioff_prev_th = theta;
-    ioff_theta  += dth;
+/* 6th-harmonic (6*we) trim in dq; see core/harm6_compensator.h for the method.
+ * Non-static so a gdb session / the datalogger can watch harm6_comp.aq. */
+#define IH6_MIN_WE_RAD_S    100.0f  /* same PLL-trust floor as the other trims */
+#define IH6_MAX_SAMPLES     4000u   /* window guard: 200 ms at 20 kHz          */
+#define IH6_ALPHA           0.10f   /* per-period correction fraction          */
+#define IH6_CLAMP_A         0.50f   /* ~3x the 0.15 A a 0.3 V dead-time term
+                                     * drives through Z(6we) = 2.3..2.9 ohm    */
 
-    ioff_sum_a += ia;
-    ioff_sum_b += ib;
-    ioff_n++;
-
-    if (ioff_n > IOFF_MAX_SAMPLES) { IOffset_ResetWindow(theta); return; }
-    if (fabsf(ioff_theta) < TWO_PI) return;          /* window still open */
-
-    /* One full electrical period accumulated: the mean is the residual */
-    float inv_n = 1.0f / (float)ioff_n;
-    ioff_a += IOFF_ALPHA * (ioff_sum_a * inv_n);
-    ioff_b += IOFF_ALPHA * (ioff_sum_b * inv_n);
-
-    if (ioff_a >  IOFF_CLAMP_A) ioff_a =  IOFF_CLAMP_A;
-    if (ioff_a < -IOFF_CLAMP_A) ioff_a = -IOFF_CLAMP_A;
-    if (ioff_b >  IOFF_CLAMP_A) ioff_b =  IOFF_CLAMP_A;
-    if (ioff_b < -IOFF_CLAMP_A) ioff_b = -IOFF_CLAMP_A;
-
-    IOffset_ResetWindow(theta);
-}
+Harm6Comp_t harm6_comp;
 
 /* Breakpoint anchor: gdb breakpoint goes on the line inside this function */
 __attribute__((noinline)) static void Datalog_CaptureDone(void)
@@ -224,7 +189,12 @@ void MotorControl_Init(void) {
     // Valid down to ~500 RPM (needs ~5 hall edges per PLL time constant).
     HallPLL_Init(&hall_pll, 251.3f, 15791.0f, Ts);
     speed_loop_counter = 0;
-    IOffset_ResetWindow(0.0f);
+    OffsetComp_Init(&curr_offset, IOFF_MIN_WE_RAD_S, IOFF_ALPHA,
+                    IOFF_CLAMP_A, IOFF_MAX_SAMPLES);
+    Harm2Comp_Init(&harm2_comp, IH2_MIN_WE_RAD_S, IH2_MIN_MAG_A, IH2_ALPHA,
+                   IH2_CLAMP, IH2_MAG_BETA, IH2_MAX_SAMPLES);
+    Harm6Comp_Init(&harm6_comp, IH6_MIN_WE_RAD_S, IH6_ALPHA,
+                   IH6_CLAMP_A, IH6_MAX_SAMPLES);
 }
 
 /*
@@ -240,9 +210,13 @@ void MotorControl_Reset(void) {
     CSMC_Reset(&current_smc);
     SpeedRef_Reset(&speed_ref_gen, foc_core.speed_measured);  /* bumpless start */
     HallPLL_Reset(&hall_pll, HW_Hall_GetBaseAngle());
-    /* Drop the averaging window but KEEP ioff_a/ioff_b: the sensor drift is
+    /* Drop the averaging window but KEEP the estimate: the sensor drift is
      * thermal, so the last estimate is still the best one after a restart. */
-    IOffset_ResetWindow(HW_Hall_GetBaseAngle());
+    OffsetComp_Reset(&curr_offset, HW_Hall_GetBaseAngle());
+    /* Same policy: the normalized shape is a hardware property, so it
+     * survives the restart; only the window and the |idq| scale are dropped. */
+    Harm2Comp_Reset(&harm2_comp, HW_Hall_GetBaseAngle());
+    Harm6Comp_Reset(&harm6_comp, HW_Hall_GetBaseAngle());
     foc_core.iq_target = 0.0f;
     speed_loop_counter = 0;
 }
@@ -262,23 +236,32 @@ void MotorControl_RunIteration(void) {
     // Phase current acquisition (synchronized to the PWM zero vector)
     HW_ADC_ReadCurrents(&foc_core.i_abc.a, &foc_core.i_abc.b);
     
-    foc_core.i_abc.a -= ioff_a;
-    foc_core.i_abc.b -= ioff_b;
-    IOffset_Update(foc_core.i_abc.a, foc_core.i_abc.b,
-                   foc_core.angle_rad, omega_elec);
+    OffsetComp_Apply(&curr_offset, &foc_core.i_abc.a, &foc_core.i_abc.b);
+    int ioff_settled = (fabsf(foc_core.speed_target - foc_core.speed_measured)<= IOFF_SPEED_TOL_RPM);
+    OffsetComp_Update(&curr_offset, foc_core.i_abc.a, foc_core.i_abc.b,foc_core.angle_rad, omega_elec, ioff_settled);
     
-    // Only valid once a and b are offset-free: the star point sums to zero
     foc_core.i_abc.c = -(foc_core.i_abc.a + foc_core.i_abc.b);
 
     FOC_Clark(&foc_core.i_abc, &foc_core.i_alphabeta);
     FOC_Park(&foc_core.i_alphabeta, &foc_core.i_dq, foc_core.angle_rad);
-    // Speed Control Loop at 1 kHz (every 20th iteration of the 20kHz loop)
+
+    /* Harmonic trims, on the same 'settled' gate as the abc offset trim. All
+     * three are orthogonal over the averaging window, so they converge
+     * independently -- uncomment the 2*we pair to run both at once. */
+    
+    Harm2Comp_Apply(&harm2_comp, &foc_core.i_dq, foc_core.angle_rad);
+    Harm2Comp_Update(&harm2_comp, &foc_core.i_dq, foc_core.angle_rad,
+                     omega_elec, ioff_settled);
+    
+    /*
+    Harm6Comp_Apply(&harm6_comp, &foc_core.i_dq, foc_core.angle_rad);
+    Harm6Comp_Update(&harm6_comp, &foc_core.i_dq, foc_core.angle_rad,
+                     omega_elec, ioff_settled);
+       */              
     speed_loop_counter++;
     if (speed_loop_counter >= 20) {
         speed_loop_counter = 0;
-
-        // Generate the tracked target: shape the raw command into a C2
-        // reference (triple integrator) and publish it as speed_target.
+        
         foc_core.speed_target     = SpeedRef_Update(&speed_ref_gen, foc_core.speed_command);
         foc_core.speed_target_dot = speed_ref_gen.a;
 

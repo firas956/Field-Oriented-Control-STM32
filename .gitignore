@@ -4,3 +4,9 @@ rm0390-stm32f446xx-advanced-armbased-32bit-mcus-stmicroelectronics-1.pdf
 
 # CMake / ninja build tree: object files, ELF, and caches holding absolute paths
 build/
+
+# Bench captures: datalogger dumps, CubeMonitor exports and generated plots.
+# Regenerated from the test bench, large, and specific to one run.
+tools/*.bin
+tools/*.csv
+tools/*.png

@@ -10,3 +10,7 @@ build/
 tools/*.bin
 tools/*.csv
 tools/*.png
+/logged_data.csv
+
+# Unused duplicate of Drivers/CMSIS/DSP/ (not referenced by CMakeLists.txt).
+/DSP/
